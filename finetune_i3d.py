@@ -1,69 +1,48 @@
-import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
-#os.environ["CUDA_VISIBLE_DEVICES"]='0,1,2,3'
-import sys
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-mode', type=str, help='rgb or flow')
-parser.add_argument('-save_model', type=str)
-parser.add_argument('-root', type=str)
-
-args = parser.parse_args()
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
 
-import torchvision
-from torchvision import datasets, transforms
-import videotransforms
-
-
-import numpy as np
-
+from dataset import TSNDataSet
 from pytorch_i3d import InceptionI3d
 
-from charades_dataset import Charades as Dataset
+
+NUM_CLASSES = 101
 
 
-def run(init_lr=0.1, max_steps=64e3, mode='rgb', root='/ssd/Charades_v1_rgb', train_split='charades/charades.json', batch_size=8*5, save_model=''):
-    # setup dataset
-    train_transforms = transforms.Compose([videotransforms.RandomCrop(224),
-                                           videotransforms.RandomHorizontalFlip(),
-    ])
-    test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
+def train(init_lr=0.1, max_steps=64e3, save_model=''):
+    """
+    Load pretrained I3D model and finetune on new dataset.
+    """
+    # Load data
+    ucf101_train1 = TSNDataSet(root_path='', 
+                               list_file='data/trainlist01.txt',
+                               num_segments=3,
+                               modality='rgb',
+                               image_tmpl='image_{:04d}.jpg')
+    ucf101_test1 = TSNDataSet(root_path='',
+                              list_file='data/testlist01.txt',
+                              num_segments=3,
+                              modality='rgb',
+                              image_tmpl='image_{:04d}.jpg')
 
-    dataset = Dataset(train_split, 'training', root, mode, train_transforms)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=36, pin_memory=True)
+    train_dataloader = DataLoader(ucf101_train1)
+    test_dataloader = DataLoader(ucf101_test1)
+    dataloaders = {'train': train_dataloader, 'val': test_dataloader}
 
-    val_dataset = Dataset(train_split, 'testing', root, mode, test_transforms)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=36, pin_memory=True)    
+    # Load model
+    i3d = InceptionI3d(400, in_channels=3)
+    i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
 
-    dataloaders = {'train': dataloader, 'val': val_dataloader}
-    datasets = {'train': dataset, 'val': val_dataset}
-
-    
-    # setup the model
-    if mode == 'flow':
-        i3d = InceptionI3d(400, in_channels=2)
-        i3d.load_state_dict(torch.load('models/flow_imagenet.pt'))
-    else:
-        i3d = InceptionI3d(400, in_channels=3)
-        i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
-    i3d.replace_logits(157)
-    #i3d.load_state_dict(torch.load('/ssd/models/000920.pt'))
-    i3d.cuda()
-    i3d = nn.DataParallel(i3d)
+    # Replace final layer to work with new dataset
+    i3d.replace_logits(NUM_CLASSES)
 
     lr = init_lr
     optimizer = optim.SGD(i3d.parameters(), lr=lr, momentum=0.9, weight_decay=0.0000001)
     lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
-
 
     num_steps_per_update = 4 # accum gradient
     steps = 0
@@ -91,10 +70,10 @@ def run(init_lr=0.1, max_steps=64e3, mode='rgb', root='/ssd/Charades_v1_rgb', tr
                 # get the inputs
                 inputs, labels = data
 
-                # wrap them in Variable (pre-torch v0.4 syntax?)
-                inputs = Variable(inputs.cuda())
-                t = inputs.size(2)
-                labels = Variable(labels.cuda())
+                # # wrap them in Variable
+                # inputs = Variable(inputs.cuda())
+                # t = inputs.size(2)
+                # labels = Variable(labels.cuda())
 
                 per_frame_logits = i3d(inputs)
                 # upsample to input size
@@ -125,9 +104,8 @@ def run(init_lr=0.1, max_steps=64e3, mode='rgb', root='/ssd/Charades_v1_rgb', tr
                         tot_loss = tot_loc_loss = tot_cls_loss = 0.
             if phase == 'val':
                 print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, tot_loc_loss/num_iter, tot_cls_loss/num_iter, (tot_loss*num_steps_per_update)/num_iter))
-    
 
 
 if __name__ == '__main__':
-    # need to add argparse
-    run(mode=args.mode, root=args.root, save_model=args.save_model)
+    train()
+    
