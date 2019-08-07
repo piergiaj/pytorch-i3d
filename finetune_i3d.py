@@ -21,12 +21,12 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
     ucf101_train1 = TSNDataSet(root_path='', 
                                list_file='data/trainlist01.txt',
                                num_segments=3,
-                               modality='rgb',
+                               modality='RGB',
                                image_tmpl='image_{:04d}.jpg')
     ucf101_test1 = TSNDataSet(root_path='',
                               list_file='data/testlist01.txt',
                               num_segments=3,
-                              modality='rgb',
+                              modality='RGB',
                               image_tmpl='image_{:04d}.jpg')
 
     train_dataloader = DataLoader(ucf101_train1)
@@ -108,4 +108,3 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
 
 if __name__ == '__main__':
     train()
-    

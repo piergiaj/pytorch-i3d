@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from PIL import Image
 import os
@@ -23,7 +23,7 @@ class VideoRecord(object):
         return int(self._data[2])
 
 
-class TSNDataSet(data.Dataset):
+class TSNDataSet(Dataset):
     def __init__(self, root_path, list_file,
                  num_segments=3, new_length=1, modality='RGB',
                  image_tmpl='img_{:05d}.jpg', transform=None,
@@ -117,10 +117,13 @@ class TSNDataSet(data.Dataset):
 
 
 if __name__ == '__main__':
-    ucf101_train1 = TSNDataSet(root_path='', 
+    ucf101_train1 = TSNDataSet(root_path='data/two_stream_flow_frame', 
                                list_file='data/trainlist01.txt',
                                num_segments=3,
-                               modality='rgb',
+                               modality='RGB',
                                image_tmpl='image_{:04d}.jpg')
     train_loader = DataLoader(ucf101_train1)
 
+    print(len(train_loader))
+    for i, (sample, label) in enumerate(train_loader):
+        pass
