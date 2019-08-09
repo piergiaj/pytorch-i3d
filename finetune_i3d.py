@@ -23,6 +23,9 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
     Load pretrained I3D model and finetune on new dataset.
     """
     # Load data
+    root = os.path.join(os.getcwd(), 'data/ucf101/clips')
+    annotation_path = os.path.join(os.getcwd(), 'data/ucf101/ucfTrainTestlist')
+    
     ucf101_train = UCF101(root=root,
                           annotation_path=annotation_path,
                           frames_per_clip=16,
