@@ -7,9 +7,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
-from dataset import TSNDataSet
+# from dataset import TSNDataSet
 from pytorch_i3d import InceptionI3d
 from transforms import Stack, ToTorchFormatTensor
+
+# newly released UCF101 dataset on pytorch=1.2.0 and torchvision=0.4
+from torchvision.datasets.ucf101 import UCF101
 
 
 NUM_CLASSES = 101
@@ -20,24 +23,18 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
     Load pretrained I3D model and finetune on new dataset.
     """
     # Load data
-    ucf101_train1 = TSNDataSet(root_path='', 
-                               list_file='data/trainlist01_v2.txt',
-                               num_segments=3,
-                               modality='RGB',
-                               image_tmpl='image_{:04d}.jpg',
-                               transform=torchvision.transforms.Compose([
-                                    Stack(),
-                                    ToTorchFormatTensor()
-                                    ]))
-    ucf101_test1 = TSNDataSet(root_path='',
-                              list_file='data/trainlist01_v2.txt',
-                              num_segments=3,
-                              modality='RGB',
-                              image_tmpl='image_{:04d}.jpg',
-                              transform=torchvision.transforms.Compose([
-                                    Stack(),
-                                    ToTorchFormatTensor()
-                                    ]))
+    ucf101_train = UCF101(root=root,
+                          annotation_path=annotation_path,
+                          frames_per_clip=16,
+                          step_between_clips=16,
+                          fold=1,
+                          train=True)
+    ucf101_test = UCF101(root=root,
+                         annotation_path=annotation_path,
+                         frames_per_clip=16,
+                         step_between_clips=16,
+                         fold=1,
+                         train=False)
 
     train_dataloader = DataLoader(ucf101_train1)
     test_dataloader = DataLoader(ucf101_test1)
@@ -78,7 +75,7 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
             for data in dataloaders[phase]:
                 num_iter += 1
                 # get the inputs
-                inputs, labels = data
+                inputs, _, labels = data # 2nd element of data tuple is audio
                 print(inputs.shape)
 
                 # # wrap them in Variable
