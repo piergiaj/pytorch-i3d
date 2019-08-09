@@ -1,10 +1,17 @@
-from torch.utils.data import Dataset, DataLoader
+"""
+Adapted from dataset.py from https://github.com/yjxiong/tsn-pytorch.
+"""
 
-from PIL import Image
 import os
 import os.path
 import numpy as np
+import torchvision
+
+from transforms import *
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
 from numpy.random import randint
+
 
 class VideoRecord(object):
     def __init__(self, row):
@@ -117,13 +124,21 @@ class TSNDataSet(Dataset):
 
 
 if __name__ == '__main__':
-    ucf101_train1 = TSNDataSet(root_path='data/two_stream_flow_frame', 
-                               list_file='data/trainlist01.txt',
-                               num_segments=3,
+    # Create UCF Dataset object and pass into DataLoader
+    ucf101_train1 = TSNDataSet(root_path='', 
+                               list_file='data/trainlist01_v2.txt',
+                               num_segments=2,
+                               new_length=1,
                                modality='RGB',
-                               image_tmpl='image_{:04d}.jpg')
+                               image_tmpl='image_{:04d}.jpg',
+                               transform=torchvision.transforms.Compose([
+                                    Stack(),
+                                    ToTorchFormatTensor()
+                                    ])
+                               )
     train_loader = DataLoader(ucf101_train1)
 
+    # Spot check if data was loaded correctly
     print(len(train_loader))
     for i, (sample, label) in enumerate(train_loader):
-        pass
+        print('{}: shape={}'.format(i, sample.shape))

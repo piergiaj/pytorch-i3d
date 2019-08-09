@@ -1,13 +1,15 @@
 import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
-
 from dataset import TSNDataSet
 from pytorch_i3d import InceptionI3d
+from transforms import Stack, ToTorchFormatTensor
 
 
 NUM_CLASSES = 101
@@ -19,15 +21,23 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
     """
     # Load data
     ucf101_train1 = TSNDataSet(root_path='', 
-                               list_file='data/trainlist01.txt',
+                               list_file='data/trainlist01_v2.txt',
                                num_segments=3,
                                modality='RGB',
-                               image_tmpl='image_{:04d}.jpg')
+                               image_tmpl='image_{:04d}.jpg',
+                               transform=torchvision.transforms.Compose([
+                                    Stack(),
+                                    ToTorchFormatTensor()
+                                    ]))
     ucf101_test1 = TSNDataSet(root_path='',
-                              list_file='data/testlist01.txt',
+                              list_file='data/trainlist01_v2.txt',
                               num_segments=3,
                               modality='RGB',
-                              image_tmpl='image_{:04d}.jpg')
+                              image_tmpl='image_{:04d}.jpg',
+                              transform=torchvision.transforms.Compose([
+                                    Stack(),
+                                    ToTorchFormatTensor()
+                                    ]))
 
     train_dataloader = DataLoader(ucf101_train1)
     test_dataloader = DataLoader(ucf101_test1)
@@ -69,6 +79,7 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
                 num_iter += 1
                 # get the inputs
                 inputs, labels = data
+                print(inputs.shape)
 
                 # # wrap them in Variable
                 # inputs = Variable(inputs.cuda())
