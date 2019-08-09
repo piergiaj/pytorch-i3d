@@ -1,3 +1,0 @@
-/Users/rhsieh/Desktop/Stanford/CV_Research/pytorch-i3d/data/two_stream_flow_frame/ApplyEyeMakeup/v_ApplyEyeMakeup_g01_c01.avi 163 0
-/Users/rhsieh/Desktop/Stanford/CV_Research/pytorch-i3d/data/two_stream_flow_frame/ApplyEyeMakeup/v_ApplyEyeMakeup_g08_c02.avi 116 0
-/Users/rhsieh/Desktop/Stanford/CV_Research/pytorch-i3d/data/two_stream_flow_frame/ApplyEyeMakeup/v_ApplyEyeMakeup_g08_c03.avi 145 0
