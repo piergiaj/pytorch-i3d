@@ -9,10 +9,11 @@ from torch.utils.data import DataLoader
 def load_ucf101(root, annotation_path):
     d = UCF101(root=root,
                annotation_path=annotation_path,
-               frames_per_clip=16,
-               step_between_clips=16,
+               frames_per_clip=64,
+               step_between_clips=64,
                fold=1,
-               train=True)
+               train=True,
+               transform=T.Compose([T.RandomCrop(224)]))
 
     return d
 
@@ -25,3 +26,4 @@ if __name__ == '__main__':
     train_loader = DataLoader(d) 
     # each item in train_loader is a tuple of length 3
     # video: (Tensor[T, H, W, C]) audio: (Tensor[K, L]), label (int)
+    # model expects BCTHW

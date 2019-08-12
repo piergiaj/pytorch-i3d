@@ -88,7 +88,7 @@ class Unit3D(nn.Module):
             
     def forward(self, x):
         # compute 'same' padding
-        (batch, t, h, w, channel) = x.size()
+        (batch, channel, t, h, w) = x.size()
         #print t,h,w
         out_t = np.ceil(float(t) / float(self._stride[0]))
         out_h = np.ceil(float(h) / float(self._stride[1]))
