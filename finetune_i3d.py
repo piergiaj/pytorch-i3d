@@ -16,33 +16,40 @@ from transforms import Stack, ToTorchFormatTensor
 from torchvision.datasets.ucf101 import UCF101
 
 
+USE_GPU = True
 NUM_CLASSES = 101
 
 
-def train(init_lr=0.1, max_steps=64e3, save_model=''):
+def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
     """
     Load pretrained I3D model and finetune on new dataset.
     """
+    if USE_GPU and torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+    print('Using device:', device)
+
     # Load data
     root = os.path.join(os.getcwd(), 'data/ucf101/clips')
     annotation_path = os.path.join(os.getcwd(), 'data/ucf101/ucfTrainTestlist')
 
-    ucf101_train = UCF101(root=root,
+    training_set = UCF101(root=root,
                           annotation_path=annotation_path,
                           frames_per_clip=16,
                           step_between_clips=16,
                           fold=1,
                           train=True)
-    ucf101_test = UCF101(root=root,
-                         annotation_path=annotation_path,
-                         frames_per_clip=16,
-                         step_between_clips=16,
-                         fold=1,
-                         train=False)
+    test_set = UCF101(root=root,
+                      annotation_path=annotation_path,
+                      frames_per_clip=16,
+                      step_between_clips=16,
+                      fold=1,
+                      train=False)
 
-    train_dataloader = DataLoader(ucf101_train)
-    test_dataloader = DataLoader(ucf101_test)
-    dataloaders = {'train': train_dataloader, 'val': test_dataloader}
+    loader_train = DataLoader(training_set)
+    loader_test = DataLoader(test_set)
+    dataloaders = {'train': loader_train, 'val': loader_test}
 
     # Load model
     i3d = InceptionI3d(400, in_channels=3)
@@ -119,4 +126,4 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
 
 
 if __name__ == '__main__':
-    train()
+    train(use_gpu=True)
