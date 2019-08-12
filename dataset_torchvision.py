@@ -1,5 +1,6 @@
 import os
 import torchvision.transforms as T
+import videotransforms
 
 from torchvision.datasets.ucf101 import UCF101
 from torch.utils.data import DataLoader
@@ -9,11 +10,11 @@ from torch.utils.data import DataLoader
 def load_ucf101(root, annotation_path):
     d = UCF101(root=root,
                annotation_path=annotation_path,
-               frames_per_clip=64,
-               step_between_clips=64,
+               frames_per_clip=16,
+               step_between_clips=16,
                fold=1,
                train=True,
-               transform=T.Compose([T.RandomCrop(224)]))
+               transform=T.Compose([videotransforms.RandomCrop(224)]))
 
     return d
 
