@@ -40,8 +40,8 @@ def train(init_lr=0.1, max_steps=64e3, save_model=''):
                          fold=1,
                          train=False)
 
-    train_dataloader = DataLoader(ucf101_train1)
-    test_dataloader = DataLoader(ucf101_test1)
+    train_dataloader = DataLoader(ucf101_train)
+    test_dataloader = DataLoader(ucf101_test)
     dataloaders = {'train': train_dataloader, 'val': test_dataloader}
 
     # Load model
