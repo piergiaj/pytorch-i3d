@@ -20,10 +20,11 @@ USE_GPU = True
 NUM_CLASSES = 101
 
 
-def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
+def train(fold=1, init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
     """
     Load pretrained I3D model and finetune on new dataset.
     """
+    # Enable GPU if available
     if USE_GPU and torch.cuda.is_available():
         device = torch.device('cuda')
     else:
@@ -38,13 +39,13 @@ def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
                           annotation_path=annotation_path,
                           frames_per_clip=16,
                           step_between_clips=16,
-                          fold=1,
+                          fold=fold,
                           train=True)
     test_set = UCF101(root=root,
                       annotation_path=annotation_path,
                       frames_per_clip=16,
                       step_between_clips=16,
-                      fold=1,
+                      fold=fold,
                       train=False)
 
     loader_train = DataLoader(training_set)
@@ -54,18 +55,18 @@ def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
     # Load model
     i3d = InceptionI3d(400, in_channels=3)
     i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
+    i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
+    i3d = i3d.to(device=device) # move the model parameters to CPU/GPU
 
-    # Replace final layer to work with new dataset
-    i3d.replace_logits(NUM_CLASSES)
-
+    # Define optimizer
     lr = init_lr
     optimizer = optim.SGD(i3d.parameters(), lr=lr, momentum=0.9, weight_decay=0.0000001)
     lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
+    # Start training
     num_steps_per_update = 4 # accum gradient
     steps = 0
-    # train it
-    while steps < max_steps:#for epoch in range(num_epochs):
+    while steps < max_steps: # for epoch in range(num_epochs):
         print('Step {}/{}'.format(steps, max_steps))
         print('-' * 10)
 
@@ -74,7 +75,7 @@ def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
             if phase == 'train':
                 i3d.train(True)
             else:
-                i3d.train(False)  # Set model to evaluate mode
+                i3d.train(False)  # set model to eval mode
                 
             tot_loss = 0.0
             tot_loc_loss = 0.0
@@ -85,29 +86,29 @@ def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
             # Iterate over data.
             for data in dataloaders[phase]:
                 num_iter += 1
-                # get the inputs
-                inputs, _, labels = data # 2nd element of data tuple is audio
-                print(inputs.shape)
+                inputs, _, class_idx = data # 2nd element of data tuple is audio
+                inputs = inputs.permute(0, 4, 1, 2, 3) # Swap from BTHWC to BCTHW
+                inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
+                labels = torch.zeros([NUM_CLASSES]) # create one-hot tensor for label
+                labels[class_idx] = 1 
+                labels = labels.view(1, NUM_CLASSES, 1) # reshape to match model output
+                labels = labels.to(device=device)
 
-                # # wrap them in Variable
-                # inputs = Variable(inputs.cuda())
-                # t = inputs.size(2)
-                # labels = Variable(labels.cuda())
-
+                # Forward pass
+                t = inputs.shape[2]
                 per_frame_logits = i3d(inputs)
-                # upsample to input size
-                per_frame_logits = F.upsample(per_frame_logits, t, mode='linear')
+                per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
 
-                # compute localization loss
+                # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
-                tot_loc_loss += loc_loss.data[0]
+                tot_loc_loss += loc_loss
 
-                # compute classification loss (with max-pooling along time B x C x T)
+                # Compute classification loss (with max-pooling along time B x C x T)
                 cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                tot_cls_loss += cls_loss.data[0]
+                tot_cls_loss += cls_loss
 
                 loss = (0.5*loc_loss + 0.5*cls_loss)/num_steps_per_update
-                tot_loss += loss.data[0]
+                tot_loss += loss
                 loss.backward()
 
                 if num_iter == num_steps_per_update and phase == 'train':
@@ -121,9 +122,10 @@ def train(init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
                         # save model
                         torch.save(i3d.module.state_dict(), save_model+str(steps).zfill(6)+'.pt')
                         tot_loss = tot_loc_loss = tot_cls_loss = 0.
+
             if phase == 'val':
                 print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, tot_loc_loss/num_iter, tot_cls_loss/num_iter, (tot_loss*num_steps_per_update)/num_iter))
 
 
 if __name__ == '__main__':
-    train(use_gpu=True)
+    train(fold=1, use_gpu=True)

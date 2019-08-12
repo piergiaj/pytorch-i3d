@@ -7,12 +7,12 @@ from torch.utils.data import DataLoader
 
 
 
-def load_ucf101(root, annotation_path):
+def load_ucf101(root, annotation_path, frames_per_clip=16, step_between_clips=16, fold=1):
     d = UCF101(root=root,
                annotation_path=annotation_path,
-               frames_per_clip=16,
-               step_between_clips=16,
-               fold=1,
+               frames_per_clip=frames_per_clip,
+               step_between_clips=step_between_clips,
+               fold=fold,
                train=True,
                transform=T.Compose([videotransforms.RandomCrop(224)]))
 
