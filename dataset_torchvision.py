@@ -22,10 +22,6 @@ if __name__ == '__main__':
     annotation_path = os.path.join(os.getcwd(), 'data/ucf101/ucfTrainTestlist')
 
     d = load_ucf101(root, annotation_path)
-    train_loader = DataLoader(d)
-
-    print(len(train_loader))
-    for i, (sample, label) in enumerate(train_loader):
-        print('{}: shape={}, label={}'.format(i, sample.shape, label))
-        if i == 10:
-            break
+    train_loader = DataLoader(d) 
+    # each item in train_loader is a tuple of length 3
+    # video: (Tensor[T, H, W, C]) audio: (Tensor[K, L]), label (int)
