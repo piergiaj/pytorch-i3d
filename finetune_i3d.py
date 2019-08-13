@@ -1,4 +1,5 @@
 import os
+import pdb
 import torch
 import torchvision
 import torch.nn as nn
@@ -51,6 +52,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 inputs, _, class_idx = data # 2nd element of data tuple is audio
                 inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
+                print('inputs shape = {}'.format(inputs.shape))
                 labels = torch.zeros([num_classes]) # create one-hot tensor for label
                 labels[class_idx] = 1 
                 labels = labels.view(1, num_classes, 1) # reshape to match model output
@@ -61,6 +63,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 per_frame_logits = model(inputs)
                 print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
                 # per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
+                # pdb.set_trace()
 
                 # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
@@ -144,11 +147,5 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    try:
-        train(i3d, optimizer, train_loader, test_loader, 
-              max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
-    except:
-        import pdb, traceback, sys
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    train(i3d, optimizer, train_loader, test_loader, 
+          max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
