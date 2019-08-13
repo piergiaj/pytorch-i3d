@@ -1,4 +1,5 @@
 import os
+import pdb
 import torch
 import torchvision
 import numpy as np
@@ -61,6 +62,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to get per-frame predictions
                 # Alternative: Take the average to get per-clip prediction
+                
+                # pdb.set_trace()
 
                 # Convert ground-truth tensor to one-hot format
                 labels = torch.zeros(per_frame_logits.shape)
@@ -149,11 +152,5 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    try:
-        train(i3d, optimizer, train_loader, test_loader, 
-              max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
-    except:
-        import pdb, traceback, sys
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    train(i3d, optimizer, train_loader, test_loader, 
+          max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
