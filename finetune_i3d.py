@@ -102,7 +102,7 @@ def train(fold=1, init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
                 t = inputs.shape[2]
                 per_frame_logits = i3d(inputs)
                 print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
-                per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
+                # per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
 
                 # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
