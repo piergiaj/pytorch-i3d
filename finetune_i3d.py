@@ -1,6 +1,7 @@
 import os
 import torch
 import torchvision
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
@@ -51,16 +52,20 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 inputs, _, class_idx = data # 2nd element of data tuple is audio
                 inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                labels = torch.zeros([num_classes]) # create one-hot tensor for label
-                labels[class_idx] = 1 
-                labels = labels.view(1, num_classes, 1) # reshape to match model output
-                labels = labels.to(device=device)
 
                 # Forward pass
-                t = inputs.shape[2]
+                t = inputs.shape[2] # number of frames
                 per_frame_logits = model(inputs)
                 print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
-                # per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
+
+                # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
+                per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to get per-frame predictions
+                # Alternative: Take the average to get per-clip prediction
+
+                # Convert ground-truth tensor to one-hot format
+                labels = torch.zeros(per_frame_logits.shape)
+                labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
+                labels = labels.to(device=device)
 
                 # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
