@@ -55,12 +55,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
-                t = inputs.shape[2] # number of frames
                 per_frame_logits = model(inputs)
                 print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
-                per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to get per-frame predictions
+                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # upsample to get per-frame predictions
                 # Alternative: Take the average to get per-clip prediction
                 
                 # pdb.set_trace()
