@@ -3,7 +3,9 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as T
 import torch.optim as optim
+import videotransforms
 
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
@@ -40,13 +42,15 @@ def train(fold=1, init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
                           frames_per_clip=16,
                           step_between_clips=16,
                           fold=fold,
-                          train=True)
+                          train=True,
+                          transform=T.Compose([videotransforms.RandomCrop(224)]))
     test_set = UCF101(root=root,
                       annotation_path=annotation_path,
                       frames_per_clip=16,
                       step_between_clips=16,
                       fold=fold,
-                      train=False)
+                      train=False,
+                      transform=T.Compose([videotransforms.RandomCrop(224)]))
 
     loader_train = DataLoader(training_set)
     loader_test = DataLoader(test_set)
@@ -97,6 +101,7 @@ def train(fold=1, init_lr=0.1, max_steps=64e3, save_model='', use_gpu=False):
                 # Forward pass
                 t = inputs.shape[2]
                 per_frame_logits = i3d(inputs)
+                print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
                 per_frame_logits = F.interpolate(per_frame_logits, size=t, mode='linear') # upsample to match number of frames
 
                 # Compute localization loss
