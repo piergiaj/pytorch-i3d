@@ -21,7 +21,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
         device = torch.device('cpu')
 
     print('Using device:', device)
-    i3d = i3d.to(device=device) # move model parameters to CPU/GPU
+    model = model.to(device=device) # move model parameters to CPU/GPU
 
     dataloaders = {'train': train_loader, 'val': test_loader} 
 
