@@ -144,5 +144,11 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, 
-          max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
+    try:
+        train(i3d, optimizer, train_loader, test_loader, 
+              max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
+    except:
+        import pdb, traceback, sys
+        extype, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
