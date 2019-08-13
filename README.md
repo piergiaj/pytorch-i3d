@@ -5,5 +5,7 @@ This repository was forked from https://github.com/piergiaj/pytorch-i3d. The I3D
 
 ## Requirements
 pytorch=1.2.0
+
 torchvision=0.4.0
+
 PyAV --> https://github.com/mikeboers/PyAV#installation
