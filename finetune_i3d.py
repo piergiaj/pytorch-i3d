@@ -62,7 +62,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # upsample to get per-frame predictions
                 # Alternative: Take the average to get per-clip prediction
                 
-                # pdb.set_trace()
+                pdb.set_trace()
 
                 # Convert ground-truth tensor to one-hot format
                 labels = torch.zeros(per_frame_logits.shape)
@@ -106,6 +106,7 @@ if __name__ == '__main__':
     STEPS_BETWEEN_CLIPS = 25
     FOLD = 1
     BATCH_SIZE = 8
+    NUM_WORKERS = 1
 
     # Load dataset
     root = os.path.join(os.getcwd(), 'data/ucf101/clips')
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=True, 
-                              num_workers=8,
+                              num_workers=NUM_WORKERS,
                               pin_memory=True)
 
     d_test = UCF101(root,
@@ -137,7 +138,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(d_test,
                              batch_size=BATCH_SIZE,
                              shuffle=True,
-                             num_workers=8,
+                             num_workers=NUM_WORKERS,
                              pin_memory=True)
     
     # Load pre-trained I3D model
