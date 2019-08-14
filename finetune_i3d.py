@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets.ucf101 import UCF101
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, save_model='', use_gpu=False):
+def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_model='', use_gpu=False):
     # Enable GPU if available
     if USE_GPU and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -28,10 +28,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
     dataloaders = {'train': train_loader, 'val': test_loader} 
 
     # Training loop
-    num_steps_per_update = 4 # back-propagate every 4 steps
-    steps = 0
-    while steps < max_steps: # for epoch in range(num_epochs):
-        print('Step {}/{}'.format(steps, max_steps))
+    for e in range(epochs):    
+        print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -40,16 +38,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
                 model.train(True)
             else:
                 model.train(False)  # set model to eval mode
-                
-            tot_loss = 0.0
-            tot_loc_loss = 0.0
-            tot_cls_loss = 0.0
-            num_iter = 0
-            optimizer.zero_grad()
             
             # Iterate over data
-            for data in dataloaders[phase]:
-                num_iter += 1
+            for t, data in dataloaders[phase]:
+                print('Step {}:'.format(t))
                 inputs, _, class_idx = data # 2nd element of data tuple is audio
                 inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
@@ -71,31 +63,26 @@ def train(model, optimizer, train_loader, test_loader, num_classes, max_steps, s
 
                 # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
-                tot_loc_loss += loc_loss
 
                 # Compute classification loss (with max-pooling along time B x C x T)
                 cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                tot_cls_loss += cls_loss
 
                 # Compute total loss and back-propagate
-                loss = (0.5*loc_loss + 0.5*cls_loss) / num_steps_per_update
-                tot_loss += loss
+                loss = (0.5*loc_loss + 0.5*cls_loss)
+
+                optimizer.zero_grad()
                 loss.backward() 
+                optimizer.step()
 
-                if num_iter == num_steps_per_update and phase == 'train':
-                    steps += 1
-                    num_iter = 0
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    # lr_sched.step()
+                if t % 10 == 0:
+                    print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, loc_loss, cls_loss, tot_loss))
+                    torch.save(model.state_dict(), save_model+str(steps).zfill(6)+'.pt')
 
-                    if steps % 10 == 0:
-                        print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, tot_loc_loss/(10*num_steps_per_update), tot_cls_loss/(10*num_steps_per_update), tot_loss/10))
-                        torch.save(model.state_dict(), save_model+str(steps).zfill(6)+'.pt')
-                        tot_loss = tot_loc_loss = tot_cls_loss = 0.
+            # TODO: Function to check accuracy on test set
 
-            if phase == 'val':
-                print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, tot_loc_loss/num_iter, tot_cls_loss/num_iter, (tot_loss*num_steps_per_update)/num_iter))
+
+def check_accuracy(model, test_loader):
+    pass
 
 
 if __name__ == '__main__':
@@ -153,4 +140,4 @@ if __name__ == '__main__':
 
     # Start training
     train(i3d, optimizer, train_loader, test_loader, 
-          max_steps=64e3, num_classes=NUM_CLASSES, use_gpu=USE_GPU)
+          num_classes=NUM_CLASSES, epochs=5, use_gpu=USE_GPU)
