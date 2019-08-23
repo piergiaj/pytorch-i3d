@@ -11,7 +11,7 @@ from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from ucf101 import UCF101
-from spatial_transforms import *
+from spatial_transforms import Compose, ToTensor, Scale
 
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_model='', use_gpu=False):
@@ -99,17 +99,21 @@ if __name__ == '__main__':
     NUM_WORKERS = 0
     SHUFFLE = False
 
+    SPATIAL_TRANSFORM = Compose([
+        Scale((224, 224)),
+        ToTensor()
+        ])
+
     # Load dataset
     video_path = '/vision/u/rhsieh91/UCF101/jpg'
     annotation_path = '/vision/u/rhsieh91/UCF101/ucfTrainTestlist/ucf101_0' + str(FOLD) + '.json'
 
-    train_transform = ToTensor()
     # test_transform = T.Compose([videotransforms.CenterCrop(224)])
     
     d_train = UCF101(video_path,
                      annotation_path,
                      subset='training',
-                     spatial_transform=train_transform)
+                     spatial_transform=SPATIAL_TRANSFORM)
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
@@ -118,8 +122,8 @@ if __name__ == '__main__':
 
     d_test = UCF101(video_path,
                     annotation_path,
-                    subset='training',
-                    spatial_transform=train_transform)
+                    subset='validation',
+                    spatial_transform=SPATIAL_TRANSFORM)
     test_loader = DataLoader(d_test, 
                              batch_size=BATCH_SIZE,
                              shuffle=SHUFFLE, 
