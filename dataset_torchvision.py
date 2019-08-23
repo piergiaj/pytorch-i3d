@@ -27,8 +27,9 @@ def inspect_dataset(dataset, num_samples=5):
     fig = plt.figure()
 
     for i in num_samples:
-        sample = dataset[i]
-        print(i, sample.shape) # Check this
+        data = dataset[i]
+        clip = data[0]
+        print(i, clip.shape) # Check this
 
         ax = plt.subplot(1, num_samples, i + 1)
         plt.tight_layout()
@@ -41,7 +42,7 @@ def inspect_dataloader(dataloader, num_samples=5):
     fig = plt.figure()
 
     for i, data in enumerate(dataloader):
-        pass
+        clip = data[0]
 
 
 if __name__ == '__main__':
