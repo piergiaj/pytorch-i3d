@@ -42,9 +42,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             for t, data in enumerate(dataloaders[phase]):
                 print('Step {}:'.format(t))
                 inputs = data[0] # BxCxTxHxW
-                print('inputs shape = {}'.format(inputs.shape))
                 # inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
+                print('inputs shape = {}'.format(inputs.shape))
                 # print('inputs shape after permute = {}'.format(inputs.shape))
 
                 # Forward pass
@@ -58,10 +58,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # pdb.set_trace()
 
                 # Convert ground-truth tensor to one-hot format
-                labels = data[1]['label']
-                # labels = torch.zeros(per_frame_logits.shape)
-                # labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
+                class_idx = data[1]['label']
+                labels = torch.zeros(per_frame_logits.shape)
+                labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
+                print('labels shape = {}'.format(labels.shape))
 
                 # Compute localization loss
                 loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
