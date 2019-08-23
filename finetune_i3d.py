@@ -108,7 +108,7 @@ if __name__ == '__main__':
     d_train = UCF101(video_path,
                      annotation_path,
                      subset='training',
-                     spatial_transforms=train_transform)
+                     spatial_transform=train_transform)
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     d_test = UCF101(video_path,
                     annotation_path,
                     subset='training',
-                    spatial_transforms=train_transform)
+                    spatial_transform=train_transform)
     test_loader = DataLoader(d_test, 
                              batch_size=BATCH_SIZE,
                              shuffle=SHUFFLE, 
