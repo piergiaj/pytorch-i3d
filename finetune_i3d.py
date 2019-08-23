@@ -7,12 +7,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from videotransforms import *
-from dataset_torchvision import *
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchvision.datasets.ucf101 import UCF101
+from ucf101 import UCF101
+from spatial_transforms import *
 
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_model='', use_gpu=False):
@@ -42,11 +41,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             # Iterate over data
             for t, data in enumerate(dataloaders[phase]):
                 print('Step {}:'.format(t))
-                inputs, _, class_idx = data # 2nd element of data tuple is audio
+                inputs = data[0] # BxCxTxHxW
                 print('inputs shape = {}'.format(inputs.shape))
-                inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
+                # inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                print('inputs shape after permute = {}'.format(inputs.shape))
+                # print('inputs shape after permute = {}'.format(inputs.shape))
 
                 # Forward pass
                 per_frame_logits = model(inputs)
@@ -59,8 +58,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # pdb.set_trace()
 
                 # Convert ground-truth tensor to one-hot format
-                labels = torch.zeros(per_frame_logits.shape)
-                labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
+                labels = data[1]['label']
+                # labels = torch.zeros(per_frame_logits.shape)
+                # labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
 
                 # Compute localization loss
@@ -94,40 +94,34 @@ if __name__ == '__main__':
     FRAMES_PER_CLIP = 16 # UCF101 has a frame rate of 25 fps with a min clip length of 1.06 s
     STEPS_BETWEEN_CLIPS = 16
     FOLD = 1
-    BATCH_SIZE = 8
+    BATCH_SIZE = 1
     NUM_WORKERS = 0
     SHUFFLE = False
 
     # Load dataset
-    root = os.path.join(os.getcwd(), 'data/ucf101/clips')
-    annotation_path = os.path.join(os.getcwd(), 'data/ucf101/ucfTrainTestlist')
+    video_path = '/vision/u/rhsieh91/UCF101/jpg'
+    annotation_path = '/vision/u/rhsieh91/UCF101/ucfTrainTestlist/ucf101_0' + str(FOLD) + '.json'
 
-    train_transform = T.Compose([videotransforms.RandomCrop(224)]) # I3D model expects input HxW of 224x224
-    test_transform = T.Compose([videotransforms.CenterCrop(224)])
+    train_transform = ToTensor()
+    # test_transform = T.Compose([videotransforms.CenterCrop(224)])
     
-    d_train = UCF101(root,
+    d_train = UCF101(video_path,
                      annotation_path,
-                     frames_per_clip=FRAMES_PER_CLIP,
-                     step_between_clips=STEPS_BETWEEN_CLIPS,
-                     fold=FOLD,
-                     train=True,
-                     transform=train_transform)
+                     subset='training',
+                     spatial_transforms=train_transform)
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
                               num_workers=NUM_WORKERS,
                               pin_memory=True)
 
-    d_test = UCF101(root,
+    d_test = UCF101(video_path,
                     annotation_path,
-                    frames_per_clip=FRAMES_PER_CLIP,
-                    step_between_clips=STEPS_BETWEEN_CLIPS,
-                    fold=FOLD,
-                    train=False,
-                    transform=test_transform)
-    test_loader = DataLoader(d_test,
+                    subset='training',
+                    spatial_transforms=train_transform)
+    test_loader = DataLoader(d_test, 
                              batch_size=BATCH_SIZE,
-                             shuffle=SHUFFLE,
+                             shuffle=SHUFFLE, 
                              num_workers=NUM_WORKERS,
                              pin_memory=True)
     
@@ -137,10 +131,9 @@ if __name__ == '__main__':
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
     # Set up optimizer
-    optimizer = optim.Adam(i3d.parameters(), lr=0.01)
+    optimizer = optim.Adam(i3d.parameters(), lr=0.001)
     # optimizer = optim.SGD(i3d.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0000001)
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, 
-          num_classes=NUM_CLASSES, epochs=5, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, use_gpu=USE_GPU)
