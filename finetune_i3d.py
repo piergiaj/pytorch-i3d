@@ -40,11 +40,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 model.train(False)  # set model to eval mode
             
             # Iterate over data
-            for t, data in dataloaders[phase]:
+            for t, data in enumerate(dataloaders[phase]):
                 print('Step {}:'.format(t))
                 inputs, _, class_idx = data # 2nd element of data tuple is audio
+                print('inputs shape = {}'.format(inputs.shape))
                 inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
+                print('inputs shape after permute = {}'.format(inputs.shape))
 
                 # Forward pass
                 per_frame_logits = model(inputs)
@@ -54,7 +56,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # upsample to get per-frame predictions
                 # Alternative: Take the average to get per-clip prediction
                 
-                pdb.set_trace()
+                # pdb.set_trace()
 
                 # Convert ground-truth tensor to one-hot format
                 labels = torch.zeros(per_frame_logits.shape)
@@ -75,8 +77,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 optimizer.step()
 
                 if t % 10 == 0:
-                    print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, loc_loss, cls_loss, tot_loss))
-                    torch.save(model.state_dict(), save_model+str(steps).zfill(6)+'.pt')
+                    print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, loc_loss, cls_loss, loss))
+                    torch.save(model.state_dict(), save_model+str(t).zfill(6)+'.pt')
 
             # TODO: Function to check accuracy on test set
 
@@ -89,11 +91,12 @@ if __name__ == '__main__':
     # Parameters
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
-    FRAMES_PER_CLIP = 25 # UCF101 has a frame rate of 25 fps with a min clip length of 1.06 s
-    STEPS_BETWEEN_CLIPS = 25
+    FRAMES_PER_CLIP = 16 # UCF101 has a frame rate of 25 fps with a min clip length of 1.06 s
+    STEPS_BETWEEN_CLIPS = 16
     FOLD = 1
     BATCH_SIZE = 8
-    NUM_WORKERS = 1
+    NUM_WORKERS = 0
+    SHUFFLE = False
 
     # Load dataset
     root = os.path.join(os.getcwd(), 'data/ucf101/clips')
@@ -111,7 +114,7 @@ if __name__ == '__main__':
                      transform=train_transform)
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
-                              shuffle=True, 
+                              shuffle=SHUFFLE, 
                               num_workers=NUM_WORKERS,
                               pin_memory=True)
 
@@ -124,7 +127,7 @@ if __name__ == '__main__':
                     transform=test_transform)
     test_loader = DataLoader(d_test,
                              batch_size=BATCH_SIZE,
-                             shuffle=True,
+                             shuffle=SHUFFLE,
                              num_workers=NUM_WORKERS,
                              pin_memory=True)
     
