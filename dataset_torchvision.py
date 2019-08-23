@@ -1,5 +1,4 @@
 import os
-import videotransforms
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 
@@ -26,7 +25,7 @@ def load_ucf101(root, annotation_path, frames_per_clip, step_between_clips, fold
 def inspect_dataset(dataset, num_samples=5):
     fig = plt.figure()
 
-    for i in num_samples:
+    for i in range(num_samples):
         data = dataset[i]
         clip = data[0]
         print(i, clip.shape) # Check this
