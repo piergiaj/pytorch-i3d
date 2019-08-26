@@ -7,15 +7,15 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from videotransforms import *
-from dataset_torchvision import *
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchvision.datasets.ucf101 import UCF101
+from ucf101 import UCF101
+from spatial_transforms import Compose, ToTensor, Scale
+from torch.utils.tensorboard import SummaryWriter
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_model='', use_gpu=False):
+def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
     # Enable GPU if available
     if USE_GPU and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -27,12 +27,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
     dataloaders = {'train': train_loader, 'val': test_loader} 
 
+    writer = SummaryWriter() # Tensorboard logging
+
     # Training loop
     for e in range(epochs):    
         print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)
@@ -42,45 +43,51 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             # Iterate over data
             for t, data in enumerate(dataloaders[phase]):
                 print('Step {}:'.format(t))
-                inputs, _, class_idx = data # 2nd element of data tuple is audio
-                print('inputs shape = {}'.format(inputs.shape))
-                inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
+                inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                print('inputs shape after permute = {}'.format(inputs.shape))
+                # print('inputs shape = {}'.format(inputs.shape))
 
                 # Forward pass
-                per_frame_logits = model(inputs)
-                print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
+                per_frame_logits = model(inputs) 
+                # print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
-                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # upsample to get per-frame predictions
-                # Alternative: Take the average to get per-clip prediction
-                
-                # pdb.set_trace()
+                # so we need to upsample (F.interpolate) to get per-frame predictions
+                # ALTERNATIVE: Take the average to get per-clip prediction
+                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Convert ground-truth tensor to one-hot format
+                class_idx = data[1]['label']
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
+                # print('labels shape = {}'.format(labels.shape))
 
-                # Compute localization loss
-                loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
+                # Compute classification loss (max along time T)
+                loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                writer.add_scalar('Loss/train', loss, t)
 
-                # Compute classification loss (with max-pooling along time B x C x T)
-                cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-
-                # Compute total loss and back-propagate
-                loss = (0.5*loc_loss + 0.5*cls_loss)
-
+                # Backward pass
                 optimizer.zero_grad()
                 loss.backward() 
                 optimizer.step()
 
-                if t % 10 == 0:
-                    print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, loc_loss, cls_loss, loss))
-                    torch.save(model.state_dict(), save_model+str(t).zfill(6)+'.pt')
+                if t % 20 == 0:
+                    print('{}, Loss = {}'.format(phase,loss))
+
+                    save_path = save_dir + str(t).zfill(6) + '.pt'
+                    torch.save({
+                                'epoch': e,
+                                'model_state_dict': model.state_dict(),
+                                'optimizer_state_dict': optimizer.state_dict(),
+                                'loss': loss
+                                },
+                                save_path)
 
             # TODO: Function to check accuracy on test set
+            check_accuracy()
+
+    writer.close()       
 
 
 def check_accuracy(model, test_loader):
@@ -91,45 +98,43 @@ if __name__ == '__main__':
     # Parameters
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
-    FRAMES_PER_CLIP = 16 # UCF101 has a frame rate of 25 fps with a min clip length of 1.06 s
-    STEPS_BETWEEN_CLIPS = 16
     FOLD = 1
-    BATCH_SIZE = 8
-    NUM_WORKERS = 0
-    SHUFFLE = False
+    BATCH_SIZE = 16
+    NUM_WORKERS = 4
+    SHUFFLE = True
+    SAVE_DIR = 'checkpoints/'
+
+    # Transforms
+    SPATIAL_TRANSFORM = Compose([
+        Scale((224, 224)),
+        ToTensor()
+        ])
 
     # Load dataset
-    root = os.path.join(os.getcwd(), 'data/ucf101/clips')
-    annotation_path = os.path.join(os.getcwd(), 'data/ucf101/ucfTrainTestlist')
-
-    train_transform = T.Compose([videotransforms.RandomCrop(224)]) # I3D model expects input HxW of 224x224
-    test_transform = T.Compose([videotransforms.CenterCrop(224)])
+    video_path = '/vision/u/rhsieh91/UCF101/jpg'
+    annotation_path = '/vision/u/rhsieh91/UCF101/ucfTrainTestlist/ucf101_0' + str(FOLD) + '.json'
     
-    d_train = UCF101(root,
+    d_train = UCF101(video_path,
                      annotation_path,
-                     frames_per_clip=FRAMES_PER_CLIP,
-                     step_between_clips=STEPS_BETWEEN_CLIPS,
-                     fold=FOLD,
-                     train=True,
-                     transform=train_transform)
+                     subset='training',
+                     n_samples_for_each_video=4,
+                     spatial_transform=SPATIAL_TRANSFORM)
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
                               num_workers=NUM_WORKERS,
                               pin_memory=True)
 
-    d_test = UCF101(root,
-                    annotation_path,
-                    frames_per_clip=FRAMES_PER_CLIP,
-                    step_between_clips=STEPS_BETWEEN_CLIPS,
-                    fold=FOLD,
-                    train=False,
-                    transform=test_transform)
-    test_loader = DataLoader(d_test,
-                             batch_size=BATCH_SIZE,
-                             shuffle=SHUFFLE,
-                             num_workers=NUM_WORKERS,
-                             pin_memory=True)
+    d_val = UCF101(video_path,
+                   annotation_path,
+                   subset='validation',
+                   n_samples_for_each_video=4,
+                   spatial_transform=SPATIAL_TRANSFORM)
+    val_loader = DataLoader(d_val, 
+                            batch_size=BATCH_SIZE,
+                            shuffle=SHUFFLE, 
+                            num_workers=NUM_WORKERS,
+                            pin_memory=True)
     
     # Load pre-trained I3D model
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
@@ -142,5 +147,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, 
-          num_classes=NUM_CLASSES, epochs=5, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=5, save_dir=SAVE_DIR, use_gpu=USE_GPU)

@@ -2,3 +2,4 @@ data/ucf101/two_stream_flow_frame
 data/ucf101/clips
 *.jpg
 *.pyc
+checkpoints/*.pt
