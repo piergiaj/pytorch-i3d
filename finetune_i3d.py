@@ -14,7 +14,7 @@ from ucf101 import UCF101
 from spatial_transforms import Compose, ToTensor, Scale
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_model='', use_gpu=False):
+def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
     # Enable GPU if available
     if USE_GPU and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -71,14 +71,14 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 if t % 20 == 0:
                     print('{}, Loss = {}'.format(phase,loss))
 
-                    save_path = save_model + str(t).zfill(6)+ '.pt'
+                    save_path = save_dir + str(t).zfill(6) + '.pt'
                     torch.save({
-                        'epoch': e,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'loss': loss
-                        },
-                        save_path)
+                                'epoch': e,
+                                'model_state_dict': model.state_dict(),
+                                'optimizer_state_dict': optimizer.state_dict(),
+                                'loss': loss
+                                },
+                                save_path)
 
             # TODO: Function to check accuracy on test set
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 1
     NUM_WORKERS = 0
     SHUFFLE = False
-    SAVE_PATH = 'checkpoints/'
+    SAVE_DIR = 'checkpoints'
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -140,4 +140,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, save_model=SAVE_PATH, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, save_dir=SAVE_DIR, use_gpu=USE_GPU)
