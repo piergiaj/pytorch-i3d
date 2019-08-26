@@ -92,9 +92,9 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
-    BATCH_SIZE = 1
-    NUM_WORKERS = 0
-    SHUFFLE = False
+    BATCH_SIZE = 16
+    NUM_WORKERS = 4
+    SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
 
     # Transforms
