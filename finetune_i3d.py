@@ -31,7 +31,6 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)
@@ -41,21 +40,18 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             # Iterate over data
             for t, data in enumerate(dataloaders[phase]):
                 print('Step {}:'.format(t))
-                inputs = data[0] # BxCxTxHxW
-                # inputs = inputs.permute(0, 4, 1, 2, 3) # swap from BxTxHxWxC to BxCxTxHxW
+                inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
                 print('inputs shape = {}'.format(inputs.shape))
-                # print('inputs shape after permute = {}'.format(inputs.shape))
 
                 # Forward pass
-                per_frame_logits = model(inputs)
+                per_frame_logits = model(inputs) 
                 print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
-                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # upsample to get per-frame predictions
-                # Alternative: Take the average to get per-clip prediction
-                
-                # pdb.set_trace()
+                # so we need to upsample (F.interpolate) to get per-frame predictions
+                # ALTERNATIVE: Take the average to get per-clip prediction
+                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Convert ground-truth tensor to one-hot format
                 class_idx = data[1]['label']
@@ -64,22 +60,25 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 labels = labels.to(device=device)
                 print('labels shape = {}'.format(labels.shape))
 
-                # Compute localization loss
-                loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
+                # Compute classification loss (max along time T)
+                loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
 
-                # Compute classification loss (with max-pooling along time B x C x T)
-                cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-
-                # Compute total loss and back-propagate
-                loss = (0.5*loc_loss + 0.5*cls_loss)
-
+                # Backward pass
                 optimizer.zero_grad()
                 loss.backward() 
                 optimizer.step()
 
-                if t % 10 == 0:
-                    print('{} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f}'.format(phase, loc_loss, cls_loss, loss))
-                    torch.save(model.state_dict(), save_model+str(t).zfill(6)+'.pt')
+                if t % 20 == 0:
+                    print('{}, Loss = {}'.format(phase,loss))
+
+                    save_path = save_model + str(t).zfill(6)+ '.pt'
+                    torch.save({
+                        'epoch': e,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': loss
+                        },
+                        save_path)
 
             # TODO: Function to check accuracy on test set
 
@@ -98,7 +97,9 @@ if __name__ == '__main__':
     BATCH_SIZE = 1
     NUM_WORKERS = 0
     SHUFFLE = False
+    SAVE_PATH = 'checkpoints/'
 
+    # Transforms
     SPATIAL_TRANSFORM = Compose([
         Scale((224, 224)),
         ToTensor()
@@ -107,8 +108,6 @@ if __name__ == '__main__':
     # Load dataset
     video_path = '/vision/u/rhsieh91/UCF101/jpg'
     annotation_path = '/vision/u/rhsieh91/UCF101/ucfTrainTestlist/ucf101_0' + str(FOLD) + '.json'
-
-    # test_transform = T.Compose([videotransforms.CenterCrop(224)])
     
     d_train = UCF101(video_path,
                      annotation_path,
@@ -136,9 +135,9 @@ if __name__ == '__main__':
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
     # Set up optimizer
-    optimizer = optim.Adam(i3d.parameters(), lr=0.001)
+    optimizer = optim.Adam(i3d.parameters(), lr=0.01)
     # optimizer = optim.SGD(i3d.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0000001)
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, save_model=SAVE_PATH, use_gpu=USE_GPU)
