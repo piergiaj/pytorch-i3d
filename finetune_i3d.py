@@ -12,6 +12,7 @@ from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from ucf101 import UCF101
 from spatial_transforms import Compose, ToTensor, Scale
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
@@ -25,6 +26,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     model = model.to(device=device) # move model parameters to CPU/GPU
 
     dataloaders = {'train': train_loader, 'val': test_loader} 
+
+    writer = SummaryWriter() # Tensorboard logging
 
     # Training loop
     for e in range(epochs):    
@@ -62,6 +65,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                 # Compute classification loss (max along time T)
                 loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                writer.add_scalar('Loss/train', loss, t)
 
                 # Backward pass
                 optimizer.zero_grad()
@@ -81,6 +85,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 save_path)
 
             # TODO: Function to check accuracy on test set
+            check_accuracy()
+
+    writer.close()       
 
 
 def check_accuracy(model, test_loader):
