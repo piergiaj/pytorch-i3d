@@ -42,11 +42,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 print('Step {}:'.format(t))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                print('inputs shape = {}'.format(inputs.shape))
+                # print('inputs shape = {}'.format(inputs.shape))
 
                 # Forward pass
                 per_frame_logits = model(inputs) 
-                print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
+                # print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
@@ -58,7 +58,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
-                print('labels shape = {}'.format(labels.shape))
+                # print('labels shape = {}'.format(labels.shape))
 
                 # Compute classification loss (max along time T)
                 loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
@@ -91,13 +91,11 @@ if __name__ == '__main__':
     # Parameters
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
-    FRAMES_PER_CLIP = 16 # UCF101 has a frame rate of 25 fps with a min clip length of 1.06 s
-    STEPS_BETWEEN_CLIPS = 16
     FOLD = 1
     BATCH_SIZE = 1
     NUM_WORKERS = 0
     SHUFFLE = False
-    SAVE_DIR = 'checkpoints'
+    SAVE_DIR = 'checkpoints/'
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -119,15 +117,15 @@ if __name__ == '__main__':
                               num_workers=NUM_WORKERS,
                               pin_memory=True)
 
-    d_test = UCF101(video_path,
-                    annotation_path,
-                    subset='validation',
-                    spatial_transform=SPATIAL_TRANSFORM)
-    test_loader = DataLoader(d_test, 
-                             batch_size=BATCH_SIZE,
-                             shuffle=SHUFFLE, 
-                             num_workers=NUM_WORKERS,
-                             pin_memory=True)
+    d_val = UCF101(video_path,
+                   annotation_path,
+                   subset='validation',
+                   spatial_transform=SPATIAL_TRANSFORM)
+    val_loader = DataLoader(d_val, 
+                            batch_size=BATCH_SIZE,
+                            shuffle=SHUFFLE, 
+                            num_workers=NUM_WORKERS,
+                            pin_memory=True)
     
     # Load pre-trained I3D model
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
@@ -140,4 +138,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, test_loader, num_classes=NUM_CLASSES, epochs=5, save_dir=SAVE_DIR, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=5, save_dir=SAVE_DIR, use_gpu=USE_GPU)
