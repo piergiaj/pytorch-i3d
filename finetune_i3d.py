@@ -57,7 +57,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Convert ground-truth tensor to one-hot format
-                class_idx = data[1]['label']
+                class_idx = data[1]['label'] # shape = B
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
@@ -95,6 +95,11 @@ def check_accuracy(model, dataloader, use_gpu=False):
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
+        
+    print('Using device:', device)
+    model = model.to(device=device)
+
+    model.train(False)
 
     for t, data in enumerate(dataloader):
         inputs = data[0] # input shape = B x C x T x H x W
@@ -103,14 +108,15 @@ def check_accuracy(model, dataloader, use_gpu=False):
         per_frame_logits = model(inputs) 
         per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
-        class_idx = data[1]['label']
-        labels = torch.zeros(per_frame_logits.shape)
-        labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
-        labels = labels.to(device=device)
+        class_idx = data[1]['label'] # shape = B
+        class_idx = class_idx.to(device=device)
         break
 
-    return inputs, per_frame_logits, labels
-        # _, argmax = torch.max(per_frame_logits, )
+    _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
+    pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+
+    return inputs, per_frame_logits, class_idx, pred
+        
 
 
 if __name__ == '__main__':
