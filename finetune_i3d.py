@@ -69,17 +69,18 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
                 num_correct += torch.sum(pred == class_idx)
 
-                # Compute classification loss (max along time T)
-                loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                writer.add_scalar('Loss/train', loss, n_iter)
-                if n_iter % 10 == 0:
-                    print('{}, loss = {}'.format(phase, loss))
-
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
+                    # Compute classification loss (max along time T)
+                    loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                    writer.add_scalar('Loss/train', loss, n_iter)
+                    
                     optimizer.zero_grad()
                     loss.backward() 
                     optimizer.step()
+
+                    if n_iter % 10 == 0:
+                        print('{}, loss = {}'.format(phase, loss))
                     n_iter += 1
                 
                 if n_iter % 100 == 0:
@@ -97,42 +98,14 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Log train/val accuracy
             accuracy = num_correct / len(dataloaders[phase].dataset)
+            print('num_correct = {}'.format(num_correct))
+            print('{}, accuracy = {}'.format(phase, accuracy))
             if phase == 'train':
                 writer.add_scalar('Accuracy/train', accuracy, e)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
 
     writer.close()       
-
-
-def check_accuracy(model, dataloader, use_gpu=False):
-    if use_gpu and torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
-
-    print('Using device:', device)
-    model = model.to(device=device)
-
-    model.train(False)
-
-    for t, data in enumerate(dataloader):
-        inputs = data[0] # input shape = B x C x T x H x W
-        inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-
-        per_frame_logits = model(inputs) 
-        per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
-
-        class_idx = data[1]['label'] # shape = B
-        class_idx = class_idx.to(device=device)
-
-        _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
-        pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
-        print('class_idx = {}'.format(class_idx))
-        print('pred = {}'.format(pred))
-        print('class_idx = pred? {}'.format(class_idx == pred))
-
-    return inputs, per_frame_logits, class_idx, pred
 
 
 if __name__ == '__main__':
