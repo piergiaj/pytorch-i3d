@@ -92,7 +92,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 },
                                 save_path)
 
-                if n_iter == 5:
+                if n_iter % 50 == 0:
                     break
 
             # Log train/val accuracy
