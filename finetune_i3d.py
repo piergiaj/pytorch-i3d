@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
     # Enable GPU if available
-    if USE_GPU and torch.cuda.is_available():
+    if use_gpu and torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
@@ -90,8 +90,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     writer.close()       
 
 
-def check_accuracy(model, dataloader):
-    for t, data in enumerate(dataloaders[phase]):
+def check_accuracy(model, dataloader, use_gpu=False):
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
+    for t, data in enumerate(dataloader):
         inputs = data[0] # input shape = B x C x T x H x W
         inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
@@ -102,7 +107,9 @@ def check_accuracy(model, dataloader):
         labels = torch.zeros(per_frame_logits.shape)
         labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
         labels = labels.to(device=device)
+        break
 
+    return inputs, per_frame_logits, labels
         # _, argmax = torch.max(per_frame_logits, )
 
 
