@@ -72,9 +72,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 loss.backward() 
                 optimizer.step()
 
-                if t % 20 == 0:
-                    print('{}, Loss = {}'.format(phase,loss))
-
+                if t % 10 == 0:
+                    print('{}, loss = {}'.format(phase, loss))
+                if t % 100 == 0:
                     save_path = save_dir + str(t).zfill(6) + '.pt'
                     torch.save({
                                 'epoch': e,
@@ -85,7 +85,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 save_path)
 
             # TODO: Function to check accuracy on test set
-            check_accuracy()
+            # check_accuracy()
 
     writer.close()       
 
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
     BATCH_SIZE = 16
-    NUM_WORKERS = 4
+    NUM_WORKERS = 1
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
 
@@ -119,6 +119,7 @@ if __name__ == '__main__':
                      subset='training',
                      n_samples_for_each_video=4,
                      spatial_transform=SPATIAL_TRANSFORM)
+    print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
@@ -130,6 +131,7 @@ if __name__ == '__main__':
                    subset='validation',
                    n_samples_for_each_video=4,
                    spatial_transform=SPATIAL_TRANSFORM)
+    print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
                             batch_size=BATCH_SIZE,
                             shuffle=SHUFFLE, 
@@ -147,4 +149,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=5, save_dir=SAVE_DIR, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=2, save_dir=SAVE_DIR, use_gpu=USE_GPU)
