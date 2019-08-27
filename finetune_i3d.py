@@ -90,8 +90,20 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     writer.close()       
 
 
-def check_accuracy(model, test_loader):
-    pass
+def check_accuracy(model, dataloader):
+    for t, data in enumerate(dataloaders[phase]):
+        inputs = data[0] # input shape = B x C x T x H x W
+        inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
+
+        per_frame_logits = model(inputs) 
+        per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
+
+        class_idx = data[1]['label']
+        labels = torch.zeros(per_frame_logits.shape)
+        labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
+        labels = labels.to(device=device)
+
+        # _, argmax = torch.max(per_frame_logits, )
 
 
 if __name__ == '__main__':
