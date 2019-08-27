@@ -21,7 +21,6 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
-
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
 
@@ -30,6 +29,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     writer = SummaryWriter() # Tensorboard logging
 
     # Training loop
+    n_iter = 0
     for e in range(epochs):    
         print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
@@ -40,16 +40,17 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             else:
                 model.train(False)  # set model to eval mode
             
+            num_correct = 0 # keep track of number of correct predictions
+            best_val = -1 # keep track of best val accuracy seen so far
+
             # Iterate over data
-            for t, data in enumerate(dataloaders[phase]):
-                print('Step {}:'.format(t))
+            for data in enumerate(dataloaders[phase]):
+                print('Step {}:'.format(n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                # print('inputs shape = {}'.format(inputs.shape))
 
                 # Forward pass
                 per_frame_logits = model(inputs) 
-                # print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
@@ -58,24 +59,30 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                 # Convert ground-truth tensor to one-hot format
                 class_idx = data[1]['label'] # shape = B
+                class_idx = class_idx.to(device=device)
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
-                # print('labels shape = {}'.format(labels.shape))
+
+                # Count number of correct predictions
+                _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
+                pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+                num_correct += torch.sum(pred == class_idx)
 
                 # Compute classification loss (max along time T)
                 loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                writer.add_scalar('Loss/train', loss, t)
+                writer.add_scalar('Loss/train', loss, n_iter)
 
-                # Backward pass
-                optimizer.zero_grad()
-                loss.backward() 
-                optimizer.step()
+                # Backward pass only if in 'train' mode
+                if phase == 'train':
+                    optimizer.zero_grad()
+                    loss.backward() 
+                    optimizer.step()
 
-                if t % 10 == 0:
+                if n_iter % 10 == 0:
                     print('{}, loss = {}'.format(phase, loss))
-                if t % 100 == 0:
-                    save_path = save_dir + str(t).zfill(6) + '.pt'
+                if n_iter % 100 == 0:
+                    save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
                     torch.save({
                                 'epoch': e,
                                 'model_state_dict': model.state_dict(),
@@ -84,8 +91,16 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 },
                                 save_path)
 
-            # TODO: Function to check accuracy on test set
-            # check_accuracy()
+                n_iter += 1
+                if n_iter == 10:
+                    break
+
+            # Log train/val accuracy
+            accuracy = num_correct / len(dataloaders[phase].dataset)
+            if phase == 'train':
+                writer.add_scalar('Accuracy/train', accuracy, e)
+            else:
+                writer.add_scalar('Accuracy/val', accuracy, e)
 
     writer.close()       
 
@@ -95,7 +110,7 @@ def check_accuracy(model, dataloader, use_gpu=False):
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
-        
+
     print('Using device:', device)
     model = model.to(device=device)
 
@@ -110,13 +125,14 @@ def check_accuracy(model, dataloader, use_gpu=False):
 
         class_idx = data[1]['label'] # shape = B
         class_idx = class_idx.to(device=device)
-        break
 
-    _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
-    pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+        _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
+        pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+        print('class_idx = {}'.format(class_idx))
+        print('pred = {}'.format(pred))
+        print('class_idx = pred? {}'.format(class_idx == pred))
 
     return inputs, per_frame_logits, class_idx, pred
-        
 
 
 if __name__ == '__main__':
