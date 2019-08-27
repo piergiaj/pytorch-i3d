@@ -97,6 +97,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Log train/val accuracy
             accuracy = num_correct / len(dataloaders[phase].dataset)
+            print('{}, accuracy = {}'.format(phase, accuracy))
             if phase == 'train':
                 writer.add_scalar('Accuracy/train', accuracy, e)
             else:
@@ -140,7 +141,7 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
     NUM_WORKERS = 1
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
