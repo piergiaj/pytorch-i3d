@@ -44,8 +44,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             best_val = -1 # keep track of best val accuracy seen so far
 
             # Iterate over data
-            for data in enumerate(dataloaders[phase]):
-                print('Step {}:'.format(n_iter))
+            for data in dataloaders[phase]:
+                print('{}, step {}:'.format(phase, n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
@@ -72,15 +72,16 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Compute classification loss (max along time T)
                 loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
                 writer.add_scalar('Loss/train', loss, n_iter)
+                if n_iter % 10 == 0:
+                    print('{}, loss = {}'.format(phase, loss))
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     optimizer.zero_grad()
                     loss.backward() 
                     optimizer.step()
-
-                if n_iter % 10 == 0:
-                    print('{}, loss = {}'.format(phase, loss))
+                    n_iter += 1
+                
                 if n_iter % 100 == 0:
                     save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
                     torch.save({
@@ -91,8 +92,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 },
                                 save_path)
 
-                n_iter += 1
-                if n_iter == 10:
+                if n_iter == 5:
                     break
 
             # Log train/val accuracy
