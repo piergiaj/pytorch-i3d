@@ -1,11 +1,14 @@
-# I3D model pre-trained on Kinetics and fine-tuned on UCF101
+# I3D model pre-trained on Kinetics and finetuned on UCF101
 
 ## Overview
-This repository was forked from https://github.com/piergiaj/pytorch-i3d. The I3D model pre-trained on Kinetics will be fine-tuned on UCF101.
+This repository was forked from https://github.com/piergiaj/pytorch-i3d, which provides a PyTorch I3D model trained on Kinetics. The pre-trained weights are used to finetune on UCF101 here.
 
 ## Requirements
-pytorch=1.2.0
-
-torchvision=0.4.0
-
-PyAV --> https://github.com/mikeboers/PyAV#installation
+* pytorch
+* torchvision
+* tensorboard
+* future
+* numpy
+* pandas
+* ffmpeg
+* PyAV --> https://github.com/mikeboers/PyAV#installation
