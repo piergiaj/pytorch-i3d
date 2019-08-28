@@ -37,15 +37,17 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)
+                print('TRAINING')
             else:
                 model.train(False)  # set model to eval mode
-            
+                print('VALIDATION')
             num_correct = 0 # keep track of number of correct predictions
             best_val = -1 # keep track of best val accuracy seen so far
 
             # Iterate over data
             for data in dataloaders[phase]:
-                print('{}, step {}:'.format(phase, n_iter))
+                if phase == 'train':
+                    print('{}, step {}:'.format(phase, n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
@@ -93,11 +95,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 },
                                 save_path)
 
-                if n_iter % 50 == 0:
-                    break
+                # if n_iter % 10 == 0:
+                #    break
 
             # Log train/val accuracy
-            accuracy = num_correct / len(dataloaders[phase].dataset)
+            accuracy = float(num_correct) / len(dataloaders[phase].dataset)
             print('num_correct = {}'.format(num_correct))
             print('{}, accuracy = {}'.format(phase, accuracy))
             if phase == 'train':
@@ -117,6 +119,7 @@ if __name__ == '__main__':
     NUM_WORKERS = 1
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
+    EPOCHS = 10
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -163,4 +166,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=2, save_dir=SAVE_DIR, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, save_dir=SAVE_DIR, use_gpu=USE_GPU)
