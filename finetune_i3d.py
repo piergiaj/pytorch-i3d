@@ -17,11 +17,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
     # Enable GPU if available
-    if USE_GPU and torch.cuda.is_available():
+    if use_gpu and torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
-
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
 
@@ -30,6 +29,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     writer = SummaryWriter() # Tensorboard logging
 
     # Training loop
+    n_iter = 0
     for e in range(epochs):    
         print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
@@ -37,19 +37,22 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)
+                print('TRAINING')
             else:
                 model.train(False)  # set model to eval mode
-            
+                print('VALIDATION')
+            num_correct = 0 # keep track of number of correct predictions
+            best_val = -1 # keep track of best val accuracy seen so far
+
             # Iterate over data
-            for t, data in enumerate(dataloaders[phase]):
-                print('Step {}:'.format(t))
+            for data in dataloaders[phase]:
+                if phase == 'train':
+                    print('{}, step {}:'.format(phase, n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
-                # print('inputs shape = {}'.format(inputs.shape))
 
                 # Forward pass
                 per_frame_logits = model(inputs) 
-                # print('per_frame_logits shape = {}'.format(per_frame_logits.shape))
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
@@ -57,25 +60,33 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Convert ground-truth tensor to one-hot format
-                class_idx = data[1]['label']
+                class_idx = data[1]['label'] # shape = B
+                class_idx = class_idx.to(device=device)
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
                 labels = labels.to(device=device)
-                # print('labels shape = {}'.format(labels.shape))
 
-                # Compute classification loss (max along time T)
-                loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                writer.add_scalar('Loss/train', loss, t)
+                # Count number of correct predictions
+                _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
+                pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+                num_correct += torch.sum(pred == class_idx)
 
-                # Backward pass
-                optimizer.zero_grad()
-                loss.backward() 
-                optimizer.step()
+                # Backward pass only if in 'train' mode
+                if phase == 'train':
+                    # Compute classification loss (max along time T)
+                    loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                    writer.add_scalar('Loss/train', loss, n_iter)
+                    
+                    optimizer.zero_grad()
+                    loss.backward() 
+                    optimizer.step()
 
-                if t % 10 == 0:
-                    print('{}, loss = {}'.format(phase, loss))
-                if t % 100 == 0:
-                    save_path = save_dir + str(t).zfill(6) + '.pt'
+                    if n_iter % 10 == 0:
+                        print('{}, loss = {}'.format(phase, loss))
+                    n_iter += 1
+                
+                if n_iter % 100 == 0:
+                    save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
                     torch.save({
                                 'epoch': e,
                                 'model_state_dict': model.state_dict(),
@@ -84,14 +95,19 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                                 },
                                 save_path)
 
-            # TODO: Function to check accuracy on test set
-            # check_accuracy()
+                # if n_iter % 10 == 0:
+                #    break
+
+            # Log train/val accuracy
+            accuracy = float(num_correct) / len(dataloaders[phase].dataset)
+            print('num_correct = {}'.format(num_correct))
+            print('{}, accuracy = {}'.format(phase, accuracy))
+            if phase == 'train':
+                writer.add_scalar('Accuracy/train', accuracy, e)
+            else:
+                writer.add_scalar('Accuracy/val', accuracy, e)
 
     writer.close()       
-
-
-def check_accuracy(model, test_loader):
-    pass
 
 
 if __name__ == '__main__':
@@ -99,10 +115,11 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
     NUM_WORKERS = 1
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
+    EPOCHS = 10
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -149,4 +166,4 @@ if __name__ == '__main__':
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=2, save_dir=SAVE_DIR, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, save_dir=SAVE_DIR, use_gpu=USE_GPU)
