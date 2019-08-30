@@ -24,8 +24,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
     
-    dataloaders = {'train': train_loader, 'val': test_loader}   
     writer = SummaryWriter() # Tensorboard logging
+    dataloaders = {'train': train_loader, 'val': test_loader}   
     best_train = -1 # keep track of best val accuracy seen so far
     best_val = -1 # keep track of best val accuracy seen so far
     n_iter = 0
@@ -33,15 +33,15 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     # Training loop
     for e in range(epochs):    
         print('Epoch {}/{}'.format(e, epochs))
-        print('-' * 10)
+        print('-'*10)
 
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)
-                print('TRAINING')
+                print('-'*10, 'TRAINING', '-'*10)
             else:
                 model.train(False)  # set model to eval mode
-                print('VALIDATION')
+                print('-'*10, 'VALIDATION', '-'*10)
 
             num_correct = 0 # keep track of number of correct predictions
 
@@ -68,8 +68,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 labels = labels.to(device=device)
 
                 # Count number of correct predictions
-                _, argmax = torch.max(per_frame_logits, dim=1) # argmax shape = B x T
-                pred, _ = torch.max(argmax, dim=1) # pred shape = B x 1
+                frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
+                _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
                 num_correct += torch.sum(pred == class_idx)
 
                 # Backward pass only if in 'train' mode
@@ -96,11 +96,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 writer.add_scalar('Accuracy/train', accuracy, e)
                 if accuracy > best_train:
                     best_train = accuracy
+                    print('BEST TRAINING ACCURACY: {}'.format(accuracy))
                     save_checkpoint(model, optimizer, save_dir, epoch, iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
                 if accuracy > best_val:
                     best_val = accuracy
+                    print('BEST VALIDATION ACCURACY: {}'.format(accuracy))
                     save_checkpoint(model, optimizer, save_dir, epoch, iter)
 
     writer.close()  
