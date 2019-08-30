@@ -23,13 +23,14 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         device = torch.device('cpu')
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
-
-    dataloaders = {'train': train_loader, 'val': test_loader} 
-
+    
+    dataloaders = {'train': train_loader, 'val': test_loader}   
     writer = SummaryWriter() # Tensorboard logging
+    best_train = -1 # keep track of best val accuracy seen so far
+    best_val = -1 # keep track of best val accuracy seen so far
+    n_iter = 0
 
     # Training loop
-    n_iter = 0
     for e in range(epochs):    
         print('Epoch {}/{}'.format(e, epochs))
         print('-' * 10)
@@ -41,8 +42,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             else:
                 model.train(False)  # set model to eval mode
                 print('VALIDATION')
+
             num_correct = 0 # keep track of number of correct predictions
-            best_val = -1 # keep track of best val accuracy seen so far
 
             # Iterate over data
             for data in dataloaders[phase]:
@@ -83,31 +84,37 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                     if n_iter % 10 == 0:
                         print('{}, loss = {}'.format(phase, loss))
-                    n_iter += 1
-                
-                if n_iter % 100 == 0:
-                    save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
-                    torch.save({
-                                'epoch': e,
-                                'model_state_dict': model.state_dict(),
-                                'optimizer_state_dict': optimizer.state_dict(),
-                                'loss': loss
-                                },
-                                save_path)
 
-                # if n_iter % 10 == 0:
-                #    break
+                    n_iter += 1
 
             # Log train/val accuracy
             accuracy = float(num_correct) / len(dataloaders[phase].dataset)
             print('num_correct = {}'.format(num_correct))
             print('{}, accuracy = {}'.format(phase, accuracy))
+
             if phase == 'train':
                 writer.add_scalar('Accuracy/train', accuracy, e)
+                if accuracy > best_train:
+                    best_train = accuracy
+                    save_checkpoint(model, optimizer, save_dir, epoch, iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
+                if accuracy > best_val:
+                    best_val = accuracy
+                    save_checkpoint(model, optimizer, save_dir, epoch, iter)
 
-    writer.close()       
+    writer.close()  
+
+
+def save_checkpoint(model, optimizer, save_dir, epoch, iter):
+    save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
+    torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss
+                },
+                save_path)
 
 
 if __name__ == '__main__':
@@ -115,11 +122,11 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16
     NUM_WORKERS = 1
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
-    EPOCHS = 10
+    EPOCHS = 30
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
