@@ -84,6 +84,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                     if n_iter % 10 == 0:
                         print('{}, loss = {}'.format(phase, loss))
+                    if n_iter % 1000 == 0:
+                        save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) 
 
                     n_iter += 1
 
@@ -97,19 +99,19 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 if accuracy > best_train:
                     best_train = accuracy
                     print('BEST TRAINING ACCURACY: {}'.format(accuracy))
-                    save_checkpoint(model, optimizer, save_dir, epoch, iter)
+                    save_checkpoint(model, optimizer, loss, save_dir, e, iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
                 if accuracy > best_val:
                     best_val = accuracy
                     print('BEST VALIDATION ACCURACY: {}'.format(accuracy))
-                    save_checkpoint(model, optimizer, save_dir, epoch, iter)
+                    save_checkpoint(model, optimizer, loss, save_dir, e, iter)
 
     writer.close()  
 
 
-def save_checkpoint(model, optimizer, save_dir, epoch, iter):
-    save_path = save_dir + str(e).zfill(2) + str(n_iter).zfill(6) + '.pt'
+def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
+    save_path = save_dir + str(epoch).zfill(2) + str(n_iter).zfill(6) + '.pt'
     torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
