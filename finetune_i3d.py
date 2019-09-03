@@ -99,13 +99,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 if accuracy > best_train:
                     best_train = accuracy
                     print('BEST TRAINING ACCURACY: {}'.format(accuracy))
-                    save_checkpoint(model, optimizer, loss, save_dir, e, iter)
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
                 if accuracy > best_val:
                     best_val = accuracy
                     print('BEST VALIDATION ACCURACY: {}'.format(accuracy))
-                    save_checkpoint(model, optimizer, loss, save_dir, e, iter)
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
     writer.close()  
 
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 101 # number of classes in UCF101
     FOLD = 1
-    BATCH_SIZE = 16
-    NUM_WORKERS = 1
+    BATCH_SIZE = 8
+    NUM_WORKERS = 2
     SHUFFLE = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
