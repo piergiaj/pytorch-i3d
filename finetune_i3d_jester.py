@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from spatial_transforms import Compose, ToTensor, Scale
+from torchvision.transforms import Compose, ToTensor, Resize
 from torch.utils.tensorboard import SummaryWriter
 
 from data_loader_jpeg import *
@@ -132,13 +132,13 @@ if __name__ == '__main__':
     BATCH_SIZE = 8
     NUM_WORKERS = 2
     SHUFFLE = True
-    PIN_MEMORY = False
+    PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
-        Scale((224, 224)),
+        Resize((224, 224)),
         ToTensor()
         ])
 
