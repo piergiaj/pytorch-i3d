@@ -10,9 +10,10 @@ import torch.nn.functional as F
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from ucf101 import UCF101
-from spatial_transforms import Compose, ToTensor, Scale
+from torchvision.transforms import Compose, ToTensor, Resize
 from torch.utils.tensorboard import SummaryWriter
+
+from data_loader_jpeg import *
 
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
@@ -47,21 +48,21 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Iterate over data
             for data in dataloaders[phase]:
-                if phase == 'train':
-                    print('{}, step {}:'.format(phase, n_iter))
+              #if phase == 'train':
+                  #print('{}, step {}:'.format(phase, n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
-                per_frame_logits = model(inputs) 
+                per_frame_logits = model(inputs) # however it's smaller here bc of downsampling
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
                 # ALTERNATIVE: Take the average to get per-clip prediction
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
-
+                
                 # Convert ground-truth tensor to one-hot format
-                class_idx = data[1]['label'] # shape = B
+                class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
                 labels = torch.zeros(per_frame_logits.shape)
                 labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
@@ -70,6 +71,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Count number of correct predictions
                 frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
                 _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
+                # print(pred)
+                # print(class_idx)
                 num_correct += torch.sum(pred == class_idx)
 
                 # Backward pass only if in 'train' mode
@@ -124,47 +127,55 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 if __name__ == '__main__':
     # Parameters
     USE_GPU = True
-    NUM_CLASSES = 101 # number of classes in UCF101
+    NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
     BATCH_SIZE = 8
     NUM_WORKERS = 2
     SHUFFLE = True
+    PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
-        Scale((224, 224)),
+        Resize((224, 224)),
         ToTensor()
         ])
 
     # Load dataset
-    video_path = '/vision/u/rhsieh91/UCF101/jpg'
-    annotation_path = '/vision/u/rhsieh91/UCF101/ucfTrainTestlist/ucf101_0' + str(FOLD) + '.json'
-    
-    d_train = UCF101(video_path,
-                     annotation_path,
-                     subset='training',
-                     n_samples_for_each_video=4,
-                     spatial_transform=SPATIAL_TRANSFORM)
+    d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
+                         csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
+                         csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                         clip_size=16,
+                         nclips=1,
+                         step_size=1,
+                         is_val=False,
+                         transform=SPATIAL_TRANSFORM,
+                         loader=default_loader)
+
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
                               num_workers=NUM_WORKERS,
-                              pin_memory=True)
+                              pin_memory=PIN_MEMORY)
 
-    d_val = UCF101(video_path,
-                   annotation_path,
-                   subset='validation',
-                   n_samples_for_each_video=4,
-                   spatial_transform=SPATIAL_TRANSFORM)
+    d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
+                         csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
+                         csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                         clip_size=16,
+                         nclips=1,
+                         step_size=1,
+                         is_val=False,
+                         transform=SPATIAL_TRANSFORM,
+                         loader=default_loader)
+
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
                             batch_size=BATCH_SIZE,
                             shuffle=SHUFFLE, 
                             num_workers=NUM_WORKERS,
-                            pin_memory=True)
+                            pin_memory=PIN_MEMORY)
     
     # Load pre-trained I3D model
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
@@ -172,7 +183,7 @@ if __name__ == '__main__':
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
     # Set up optimizer
-    optimizer = optim.Adam(i3d.parameters(), lr=0.01)
+    optimizer = optim.Adam(i3d.parameters(), lr=0.001) # TODO: we are currently plateuing, maybe change this?
     # optimizer = optim.SGD(i3d.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0000001)
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
