@@ -60,7 +60,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # so we need to upsample (F.interpolate) to get per-frame predictions
                 # ALTERNATIVE: Take the average to get per-clip prediction
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
-
+                
                 # Convert ground-truth tensor to one-hot format
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
@@ -71,6 +71,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Count number of correct predictions
                 frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
                 _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
+                # print(pred)
+                # print(class_idx)
                 num_correct += torch.sum(pred == class_idx)
 
                 # Backward pass only if in 'train' mode
@@ -130,6 +132,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 8
     NUM_WORKERS = 2
     SHUFFLE = True
+    PIN_MEMORY = False
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
 
@@ -143,9 +146,9 @@ if __name__ == '__main__':
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
-                         clip_size=18,
+                         clip_size=16,
                          nclips=1,
-                         step_size=2,
+                         step_size=1,
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
@@ -155,14 +158,14 @@ if __name__ == '__main__':
                               batch_size=BATCH_SIZE,
                               shuffle=SHUFFLE, 
                               num_workers=NUM_WORKERS,
-                              pin_memory=True)
+                              pin_memory=PIN_MEMORY)
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
-                         clip_size=18,
+                         clip_size=16,
                          nclips=1,
-                         step_size=2,
+                         step_size=1,
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
@@ -172,7 +175,7 @@ if __name__ == '__main__':
                             batch_size=BATCH_SIZE,
                             shuffle=SHUFFLE, 
                             num_workers=NUM_WORKERS,
-                            pin_memory=True)
+                            pin_memory=PIN_MEMORY)
     
     # Load pre-trained I3D model
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
