@@ -125,16 +125,17 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
-    # Parameters
+    # Hyperparameters
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
+    LR = 0.0001
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
     # Set up optimizer
-    optimizer = optim.Adam(i3d.parameters(), lr=0.001) # TODO: we are currently plateuing, maybe change this?
+    optimizer = optim.Adam(i3d.parameters(), lr=LR) # TODO: we are currently plateuing, maybe change this?
     # optimizer = optim.SGD(i3d.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0000001)
     # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
 
