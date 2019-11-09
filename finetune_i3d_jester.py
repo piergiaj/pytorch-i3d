@@ -48,8 +48,6 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Iterate over data
             for data in dataloaders[phase]:
-              #if phase == 'train':
-                  #print('{}, step {}:'.format(phase, n_iter))
                 inputs = data[0] # input shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
@@ -64,13 +62,14 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Convert ground-truth tensor to one-hot format
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
-                labels = torch.zeros(per_frame_logits.shape)
-                labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
-                labels = labels.to(device=device)
+                # labels = torch.zeros(per_frame_logits.shape)
+                # labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
+                # labels = labels.to(device=device)
 
                 # Count number of correct predictions
                 frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
                 _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
+                pred = pred.to(device=device)
                 print('pred = {}'.format(pred))
                 print('pred shape = {}'.format(pred.shape))
                 print('ground truth = {}'.format(class_idx))
@@ -81,7 +80,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     # Compute classification loss (max along time T)
-                    loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                    # loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                    loss = F.cross_entropy(pred, class_idx)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -133,12 +133,12 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
-    BATCH_SIZE = 4
+    BATCH_SIZE = 8
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
-    EPOCHS = 1
+    EPOCHS = 30
     LR = 0.0001
 
     # Transforms
@@ -157,7 +157,7 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    d_train = Subset(d_train, range(0,100))
+    # d_train = Subset(d_train, range(0,100))
 
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    d_val = Subset(d_val, range(0,100))
+    # d_val = Subset(d_val, range(0,100))
 
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
