@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision.transforms import Compose, ToTensor, Resize
 from torch.utils.tensorboard import SummaryWriter
 
@@ -71,8 +71,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # Count number of correct predictions
                 frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
                 _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
-                # print(pred)
-                # print(class_idx)
+                print('pred = {}'.format(pred))
+                print('pred shape = {}'.format(pred.shape))
+                print('ground truth = {}'.format(class_idx))
+                print('ground truth shape = {}'.format(class_idx.shape))
+                print('num correct in mini-batch = {}'.format(torch.sum(pred == class_idx)))
                 num_correct += torch.sum(pred == class_idx)
 
                 # Backward pass only if in 'train' mode
@@ -95,6 +98,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
             # Log train/val accuracy
             accuracy = float(num_correct) / len(dataloaders[phase].dataset)
             print('num_correct = {}'.format(num_correct))
+            print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
             print('{}, accuracy = {}'.format(phase, accuracy))
 
             if phase == 'train':
@@ -129,12 +133,12 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
-    BATCH_SIZE = 16
+    BATCH_SIZE = 4
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
-    EPOCHS = 30
+    EPOCHS = 1
     LR = 0.0001
 
     # Transforms
@@ -153,6 +157,7 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
+    d_train = Subset(d_train, range(0,100))
 
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
@@ -170,6 +175,7 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
+    d_val = Subset(d_val, range(0,100))
 
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
