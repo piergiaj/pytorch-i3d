@@ -67,21 +67,21 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # labels = labels.to(device=device)
 
                 # Count number of correct predictions
-                frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
-                _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
-                pred = pred.to(device=device)
-                print('pred = {}'.format(pred))
-                print('pred shape = {}'.format(pred.shape))
-                print('ground truth = {}'.format(class_idx))
-                print('ground truth shape = {}'.format(class_idx.shape))
-                print('num correct in mini-batch = {}'.format(torch.sum(pred == class_idx)))
-                num_correct += torch.sum(pred == class_idx)
+                frame_mean_logit = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES
+                _, pred_class_idx = torch.max(frame_mean_logit, dim=1) # pred shape = B x 1
+                pred_class_idx = pred_class_idx.to(device=device)
+                num_correct += torch.sum(pred_class_idx == class_idx)
+                # print('pred = {}'.format(pred_class_idx))
+                # print('pred shape = {}'.format(pred_class_idx.shape))
+                # print('class_idx = {}'.format(class_idx))
+                # print('class_idx shape = {}'.format(class_idx.shape))
+                # print('num correct in mini-batch = {}'.format(torch.sum(pred_class_idx == class_idx)))
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
-                    # Compute classification loss (max along time T)
+                    # Compute classification loss)
                     # loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                    loss = F.cross_entropy(pred, class_idx)
+                    loss = F.cross_entropy(frame_mean_logit, class_idx)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
-    LR = 0.0001
+    LR = 0.01
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
