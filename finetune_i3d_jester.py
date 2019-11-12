@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
 from torch.utils.tensorboard import SummaryWriter
 
@@ -146,7 +146,6 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    # d_train = Subset(d_train, range(0,100))
 
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
@@ -164,7 +163,6 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    # d_val = Subset(d_val, range(0,100))
 
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
