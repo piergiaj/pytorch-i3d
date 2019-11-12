@@ -15,6 +15,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from data_loader_jpeg import *
 
+import sys
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--lr', type=float, help='learning rate')
+parser.add_argument('--bs', type=int, help='batch size')
+args = parser.parse_args()
+
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
     # Enable GPU if available
@@ -129,17 +136,25 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 3:
+      parser.print_usage()
+      sys.exit(1)
+
     # Hyperparameters
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
-    BATCH_SIZE = 8
+    LR = args.lr
+    BATCH_SIZE = args.bs
+    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs)
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
-    SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
-    LR = 0.01
+    
+    print('LR =', LR)
+    print('BS =', BATCH_SIZE)
+    print('SAVE_DIR =', SAVE_DIR)
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
