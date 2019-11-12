@@ -20,6 +20,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, help='learning rate')
 parser.add_argument('--bs', type=int, help='batch size')
+parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
 
@@ -136,7 +137,7 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
       parser.print_usage()
       sys.exit(1)
 
@@ -150,10 +151,11 @@ if __name__ == '__main__':
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
-    EPOCHS = 30
+    EPOCHS = args.epochs 
     
     print('LR =', LR)
-    print('BS =', BATCH_SIZE)
+    print('BATCH_SIZE =', BATCH_SIZE)
+    print('EPOCHS =', EPOCHS)
     print('SAVE_DIR =', SAVE_DIR)
 
     # Transforms
