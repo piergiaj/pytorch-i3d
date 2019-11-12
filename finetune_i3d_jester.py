@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from pytorch_i3d import InceptionI3d
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
 from torch.utils.tensorboard import SummaryWriter
 
@@ -56,7 +56,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Iterate over data
             for data in dataloaders[phase]:
-                inputs = data[0] # input shape = B x C x T x H x W
+                inputs = data[0] # shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
@@ -66,30 +66,21 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # so we need to upsample (F.interpolate) to get per-frame predictions
                 # ALTERNATIVE: Take the average to get per-clip prediction
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
-                
-                # Convert ground-truth tensor to one-hot format
+
+                # Average across frames to get a single prediction per clip
+                mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES, each row is a one-hot vector
+                mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
+                _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                num_correct += torch.sum(pred_class_idx == class_idx)
+
+                # Ground truth labels
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
-                # labels = torch.zeros(per_frame_logits.shape)
-                # labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
-                # labels = labels.to(device=device)
-
-                # Count number of correct predictions
-                frame_mean_logit = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES
-                _, pred_class_idx = torch.max(frame_mean_logit, dim=1) # pred shape = B x 1
-                pred_class_idx = pred_class_idx.to(device=device)
-                num_correct += torch.sum(pred_class_idx == class_idx)
-                # print('pred = {}'.format(pred_class_idx))
-                # print('pred shape = {}'.format(pred_class_idx.shape))
-                # print('class_idx = {}'.format(class_idx))
-                # print('class_idx shape = {}'.format(class_idx.shape))
-                # print('num correct in mini-batch = {}'.format(torch.sum(pred_class_idx == class_idx)))
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
-                    # Compute classification loss)
-                    # loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
-                    loss = F.cross_entropy(frame_mean_logit, class_idx)
+                    # Compute classification loss
+                    loss = F.cross_entropy(mean_frame_logits, class_idx)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -98,8 +89,6 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                     if n_iter % 10 == 0:
                         print('{}, loss = {}'.format(phase, loss))
-                    if n_iter % 1000 == 0:
-                        save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) 
 
                     n_iter += 1
 
@@ -113,13 +102,13 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 writer.add_scalar('Accuracy/train', accuracy, e)
                 if accuracy > best_train:
                     best_train = accuracy
-                    print('BEST TRAINING ACCURACY: {}'.format(accuracy))
+                    print('BEST TRAINING ACCURACY: {}'.format(best_train))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
                 if accuracy > best_val:
                     best_val = accuracy
-                    print('BEST VALIDATION ACCURACY: {}'.format(accuracy))
+                    print('BEST VALIDATION ACCURACY: {}'.format(best_val))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
     writer.close()  
@@ -174,7 +163,6 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    # d_train = Subset(d_train, range(0,100))
 
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
@@ -192,7 +180,6 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
-    # d_val = Subset(d_val, range(0,100))
 
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
