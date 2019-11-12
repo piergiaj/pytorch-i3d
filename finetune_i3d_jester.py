@@ -48,9 +48,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
             # Iterate over data
             for data in dataloaders[phase]:
-              #if phase == 'train':
-                  #print('{}, step {}:'.format(phase, n_iter))
-                inputs = data[0] # input shape = B x C x T x H x W
+                inputs = data[0] # shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
@@ -60,25 +58,21 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 # so we need to upsample (F.interpolate) to get per-frame predictions
                 # ALTERNATIVE: Take the average to get per-clip prediction
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
-                
-                # Convert ground-truth tensor to one-hot format
+
+                # Average across frames to get a single prediction per clip
+                mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES, each row is a one-hot vector
+                mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
+                _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                num_correct += torch.sum(pred_class_idx == class_idx)
+
+                # Ground truth labels
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
-                labels = torch.zeros(per_frame_logits.shape)
-                labels[np.arange(len(labels)), class_idx, :] = 1 # fancy broadcasting trick: https://stackoverflow.com/questions/23435782
-                labels = labels.to(device=device)
-
-                # Count number of correct predictions
-                frame_avg = torch.mean(per_frame_logits, dim=2) # frame_avg shape = B x NUM_CLASSES
-                _, pred = torch.max(frame_avg, dim=1) # pred shape = B x 1
-                # print(pred)
-                # print(class_idx)
-                num_correct += torch.sum(pred == class_idx)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
-                    # Compute classification loss (max along time T)
-                    loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0], torch.max(labels, dim=2)[0])
+                    # Compute classification loss
+                    loss = F.cross_entropy(mean_frame_logits, class_idx)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -87,27 +81,26 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
                     if n_iter % 10 == 0:
                         print('{}, loss = {}'.format(phase, loss))
-                    if n_iter % 1000 == 0:
-                        save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) 
 
                     n_iter += 1
 
             # Log train/val accuracy
             accuracy = float(num_correct) / len(dataloaders[phase].dataset)
             print('num_correct = {}'.format(num_correct))
+            print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
             print('{}, accuracy = {}'.format(phase, accuracy))
 
             if phase == 'train':
                 writer.add_scalar('Accuracy/train', accuracy, e)
                 if accuracy > best_train:
                     best_train = accuracy
-                    print('BEST TRAINING ACCURACY: {}'.format(accuracy))
+                    print('BEST TRAINING ACCURACY: {}'.format(best_train))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
                 writer.add_scalar('Accuracy/val', accuracy, e)
                 if accuracy > best_val:
                     best_val = accuracy
-                    print('BEST VALIDATION ACCURACY: {}'.format(accuracy))
+                    print('BEST VALIDATION ACCURACY: {}'.format(best_val))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
     writer.close()  
@@ -129,13 +122,13 @@ if __name__ == '__main__':
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
     FOLD = 1
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
     SAVE_DIR = 'checkpoints/'
     EPOCHS = 30
-    LR = 0.0001
+    LR = 0.001
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
