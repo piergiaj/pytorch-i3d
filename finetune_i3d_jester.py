@@ -137,10 +137,9 @@ if __name__ == '__main__':
     # Hyperparameters
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
-    FOLD = 1
     LR = args.lr
     BATCH_SIZE = args.bs
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs)
+    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
