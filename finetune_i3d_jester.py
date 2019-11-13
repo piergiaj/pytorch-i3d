@@ -133,7 +133,6 @@ if __name__ == '__main__':
     # Hyperparameters
     USE_GPU = True
     NUM_CLASSES = 27 # number of classes in Jester
-    FOLD = 1
     LR = args.lr
     BATCH_SIZE = args.bs
     SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs)
@@ -177,7 +176,7 @@ if __name__ == '__main__':
                          clip_size=16,
                          nclips=1,
                          step_size=1,
-                         is_val=False,
+                         is_val=True,
                          transform=SPATIAL_TRANSFORM,
                          loader=default_loader)
 
