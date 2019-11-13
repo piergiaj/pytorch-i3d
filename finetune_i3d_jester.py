@@ -71,11 +71,11 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES, each row is a one-hot vector
                 mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
                 _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
-                num_correct += torch.sum(pred_class_idx == class_idx)
 
                 # Ground truth labels
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
+                num_correct += torch.sum(pred_class_idx == class_idx)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
