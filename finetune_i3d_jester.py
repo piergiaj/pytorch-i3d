@@ -115,6 +115,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
 
 def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
+    """Saves checkpoint of model weights during training."""
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     save_path = save_dir + str(epoch).zfill(2) + str(n_iter).zfill(6) + '.pt'
     torch.save({
                 'epoch': epoch,
