@@ -115,7 +115,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
 
 def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
-    """Saves checkpoints of model weights during training."""
+    """Saves checkpoint of model weights during training."""
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
