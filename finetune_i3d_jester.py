@@ -75,7 +75,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES, each row is a one-hot vector
                 mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
                 _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
-                
+
                 # Ground truth labels
                 class_idx = data[1] # shape = B
                 class_idx = class_idx.to(device=device)
@@ -119,6 +119,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
 
 
 def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
+    """Saves checkpoint of model weights during training."""
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     save_path = save_dir + str(epoch).zfill(2) + str(n_iter).zfill(6) + '.pt'
     torch.save({
                 'epoch': epoch,
@@ -139,7 +143,7 @@ if __name__ == '__main__':
     NUM_CLASSES = 27 # number of classes in Jester
     LR = args.lr
     BATCH_SIZE = args.bs
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs)
+    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
