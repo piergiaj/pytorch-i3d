@@ -60,7 +60,15 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
-                per_frame_logits = model(inputs) # however it's smaller here bc of downsampling
+                if phase == 'train':
+                    per_frame_logits = model(inputs)
+                    class_idx = data[1] # shape = B
+                    class_idx = class_idx.to(device=device)
+                else:
+                    with torch.no_grad():
+                        per_frame_logits = model(inputs)
+                        class_idx = data[1] # shape = B
+                        class_idx = class_idx.to(device=device) 
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
@@ -74,8 +82,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                 num_correct += torch.sum(pred_class_idx == class_idx)
 
                 # Ground truth labels
-                class_idx = data[1] # shape = B
-                class_idx = class_idx.to(device=device)
+                # class_idx = data[1] # shape = B
+                # class_idx = class_idx.to(device=device)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
