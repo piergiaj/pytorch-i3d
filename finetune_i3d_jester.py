@@ -24,7 +24,7 @@ parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False):
+def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False, **kwargs):
     # Enable GPU if available
     if use_gpu and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -32,6 +32,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
         device = torch.device('cpu')
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
+
+    # Check for LR scheduler
+    lr_sched = kwargs.get(lr_schedule, None)
     
     writer = SummaryWriter() # Tensorboard logging
     dataloaders = {'train': train_loader, 'val': test_loader}   
@@ -115,6 +118,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
                     print('BEST VALIDATION ACCURACY: {}'.format(best_val))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
+        if lr_sched is not None:
+            lr_sched.step() # decay learning rate according 
+
     writer.close()  
 
 
@@ -143,11 +149,11 @@ if __name__ == '__main__':
     NUM_CLASSES = 27 # number of classes in Jester
     LR = args.lr
     BATCH_SIZE = args.bs
+    EPOCHS = args.epochs 
     SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
-    EPOCHS = args.epochs 
     
     print('LR =', LR)
     print('BATCH_SIZE =', BATCH_SIZE)
@@ -162,14 +168,14 @@ if __name__ == '__main__':
 
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                         csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
-                         csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
-                         clip_size=16,
-                         nclips=1,
-                         step_size=1,
-                         is_val=False,
-                         transform=SPATIAL_TRANSFORM,
-                         loader=default_loader)
+                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
+                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                          clip_size=16,
+                          nclips=1,
+                          step_size=1,
+                          is_val=False,
+                          transform=SPATIAL_TRANSFORM,
+                          loader=default_loader)
 
     print('Size of training set = {}'.format(len(d_train)))
     train_loader = DataLoader(d_train, 
@@ -179,14 +185,14 @@ if __name__ == '__main__':
                               pin_memory=PIN_MEMORY)
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                         csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
-                         csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
-                         clip_size=16,
-                         nclips=1,
-                         step_size=1,
-                         is_val=True,
-                         transform=SPATIAL_TRANSFORM,
-                         loader=default_loader)
+                        csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
+                        csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                        clip_size=16,
+                        nclips=1,
+                        step_size=1,
+                        is_val=True,
+                        transform=SPATIAL_TRANSFORM,
+                        loader=default_loader)
 
     print('Size of validation set = {}'.format(len(d_val)))
     val_loader = DataLoader(d_val, 
@@ -201,9 +207,8 @@ if __name__ == '__main__':
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
     # Set up optimizer
-    optimizer = optim.Adam(i3d.parameters(), lr=LR) # TODO: we are currently plateuing, maybe change this?
-    # optimizer = optim.SGD(i3d.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0000001)
-    # lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [300, 1000])
+    optimizer = optim.Adam(i3d.parameters(), lr=LR) 
+    lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [10, 20], gamma=0.1) # decay learning rate by gamma at epoch 10 and 20
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, save_dir=SAVE_DIR, use_gpu=USE_GPU)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_schedule=lr_sched)
