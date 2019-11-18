@@ -24,7 +24,8 @@ parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save_dir='', use_gpu=False, **kwargs):
+def train(model, optimizer, train_loader, test_loader, num_classes, epochs, 
+          save_dir='', use_gpu=False, **kwargs):
     # Enable GPU if available
     if use_gpu and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -34,7 +35,7 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs, save
     model = model.to(device=device) # move model parameters to CPU/GPU
 
     # Check for LR scheduler
-    lr_sched = kwargs.get(lr_schedule, None)
+    lr_sched = kwargs.get('lr_schedule', None)
     
     writer = SummaryWriter() # Tensorboard logging
     dataloaders = {'train': train_loader, 'val': test_loader}   
@@ -206,9 +207,10 @@ if __name__ == '__main__':
     i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
     i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
 
-    # Set up optimizer
+    # Set up optimizer and learning rate schedule
     optimizer = optim.Adam(i3d.parameters(), lr=LR) 
     lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [10, 20], gamma=0.1) # decay learning rate by gamma at epoch 10 and 20
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_schedule=lr_sched)
+    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, 
+          save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_schedule=lr_sched)
