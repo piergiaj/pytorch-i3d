@@ -1,4 +1,18 @@
-# import pandas as pd
+"""
+Category labels (which serve as 'scene' classes, as opposed to 'action' classes which are the original labels):
+  * swiping-left-right
+  * swiping-up-down
+  * pushing-pulling-hand
+  * pushing-pulling-two-fingers
+  * sliding-left-right
+  * sliding-up-down
+  * rolling-hand
+  * turning-hand
+  * zooming-full-hand
+  * zooming-two-fingers
+  * thumb
+"""
+
 import os
 import sys
 
@@ -14,10 +28,10 @@ for f_name in ['jester-v1-train.csv', 'jester-v1-validation.csv']:
       line = line.lower()
       if 'swiping' in line:
         category = 'swiping-left-right' if 'left' in line or 'right' in line else 'swiping-up-down'
-      if 'push' in line or 'pull' in line:
-        category = 'push-pull-hand' if 'hand' in line else 'push-pull-two-fingers'
+      if 'pushing' in line or 'pulling' in line:
+        category = 'pushing-pulling-hand' if 'hand' in line else 'pushing-pulling-two-fingers'
       if 'sliding' in line:
-        category = 'slide-left-right' if 'left' in line or 'right' in line else 'sliding-up-down'
+        category = 'sliding-left-right' if 'left' in line or 'right' in line else 'sliding-up-down'
       if 'rolling' in line:
         category = 'rolling-hand'
       if 'turning' in line:
