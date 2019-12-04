@@ -45,7 +45,7 @@ class VideoFolder(torch.utils.data.Dataset):
             img = self.transform(img)
             imgs.append(torch.unsqueeze(img, 0))
 
-        target_idx = self.classes_dict[item.label]
+        target_idx = self.classes_dict[item.label] # TODO modify this
 
         # format data to torch
         data = torch.cat(imgs)
