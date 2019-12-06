@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 
 def train(model, optimizer, train_loader, test_loader, num_classes, epochs, 
-          save_dir='', use_gpu=False, **kwargs):
+          save_dir='', use_gpu=False, lr_sched=None):
     # Enable GPU if available
     if use_gpu and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -33,9 +33,6 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
         device = torch.device('cpu')
     print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
-
-    # Check for LR scheduler
-    lr_sched = kwargs.get('lr_schedule', None)
     
     writer = SummaryWriter() # Tensorboard logging
     dataloaders = {'train': train_loader, 'val': test_loader}   
@@ -213,4 +210,4 @@ if __name__ == '__main__':
 
     # Start training
     train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, 
-          save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_schedule=lr_sched)
+          save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_sched=lr_sched)
