@@ -25,7 +25,7 @@ parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, 
+def train(model, optimizer, train_loader, test_loader, epochs, 
           save_dir='', use_gpu=False, lr_sched=None):
     # Enable GPU if available
     if use_gpu and torch.cuda.is_available():
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
     SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
-    NUM_WORKERS = 2
+    NUM_WORKERS = 0
     SHUFFLE = True
     PIN_MEMORY = True
     
@@ -208,12 +208,12 @@ if __name__ == '__main__':
     # Load pre-trained I3D backbone and set up SIFE
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
     i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
-    sife = SIFE(backbone=i3d, num_features=1024, num_actions=27, num_scenes=2)
+    sife = SIFE(backbone=i3d, num_features=1024, num_actions=NUM_ACTIONS, num_scenes=NUM_SCENES)
 
     # Set up optimizer and learning rate schedule
     optimizer = optim.Adam(i3d.parameters(), lr=LR) 
     lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [10, 20], gamma=0.1) # decay learning rate by gamma at epoch 10 and 20
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, 
+    train(sife, optimizer, train_loader, val_loader, epochs=EPOCHS, 
           save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_sched=lr_sched)
