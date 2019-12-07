@@ -67,8 +67,6 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                 # Forward pass
                 if phase == 'train':
                     per_frame_logits, scene_logits = model(inputs)
-                    print('action_logits shape = {}'.format(per_frame_logits.shape))
-                    print('scene_logits shape = {}'.format(scene_logits.shape))
                 else: 
                     with torch.no_grad(): # disable autograd to reduce memory usage
                         per_frame_logits, scene_logits = model(inputs)
@@ -89,7 +87,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                 action_idx = action_idx.to(device=device)
                 num_correct_actions += torch.sum(pred_action_idx == action_idx)
 
-                scene_idx = action_idx # TODO: This is just to test the code, still need actional scene ground truth labels
+                scene_idx = torch.ones_like(pred_scene_idx) # TODO: This is just to test the code, still need actual scene ground truth labels
                 scene_idx = scene_idx.to(device=device)
                 num_correct_scenes += torch.sum(pred_scene_idx == scene_idx)
 
@@ -99,14 +97,19 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     action_loss = F.cross_entropy(mean_frame_logits, action_idx)
                     scene_loss = F.cross_entropy(scene_logits, scene_idx)
                     loss = action_loss + scene_loss
-                    writer.add_scalar('Loss/train', loss, n_iter)
+
+                    writer.add_scalar('Loss/train_action', action_loss, n_iter)
+                    writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
+                    writer.add_scalar('Loss/train_total', loss, n_iter)
                     
                     optimizer.zero_grad()
                     loss.backward() 
                     optimizer.step()
 
                     if n_iter % 10 == 0:
-                        print('{}, loss = {}'.format(phase, loss))
+                        print('{}, action_loss = {}'.format(phase, action_loss))
+                        print('{}, scene_loss = {}'.format(phase, scene_loss))
+                        print('{}, total_loss = {}'.format(phase, loss))
 
                     n_iter += 1
 
@@ -116,7 +119,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
             print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
             print('{}, action accuracy = {}'.format(phase, action_accuracy))
 
-            scene_accuracy = float(scene_correct_scenes) / len(dataloaders[phase].dataset)
+            scene_accuracy = float(num_correct_scenes) / len(dataloaders[phase].dataset)
             print('num_correct_scenes = {}'.format(num_correct_scenes))
             print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
             print('{}, scene accuracy = {}'.format(phase, scene_accuracy))
@@ -127,6 +130,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     best_train_action = action_accuracy
                     print('BEST ACTION TRAINING ACCURACY: {}'.format(best_train_action))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) # TODO: Determine which checkpoint to save
+                writer.add_scalar('Accuracy/train_scene', scene_accuracy, e)
                 if scene_accuracy > best_train_scene:
                     best_train_scene = action_accuracy
                     print('BEST SCENE TRAINING ACCURACY: {}'.format(best_train_scene))
@@ -137,6 +141,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     best_val_action = action_accuracy
                     print('BEST ACTION VALIDATION ACCURACY: {}'.format(best_val_action))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
+                writer.add_scalar('Accuracy/val_scene', scene_accuracy, e)
                 if scene_accuracy > best_val_scene:
                     best_val_scene = action_accuracy
                     print('BEST SCENE VALIDATION ACCURACY: {}'.format(best_val_scene))
@@ -171,7 +176,7 @@ if __name__ == '__main__':
     # Hyperparameters
     USE_GPU = True
     NUM_ACTIONS = 27 
-    NUM_SCENES = 27
+    NUM_SCENES = 10
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
