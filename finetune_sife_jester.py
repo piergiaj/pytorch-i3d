@@ -37,8 +37,10 @@ def train(model, optimizer, train_loader, test_loader, epochs,
     
     writer = SummaryWriter() # Tensorboard logging
     dataloaders = {'train': train_loader, 'val': test_loader}   
-    best_train = -1 # keep track of best val accuracy seen so far
-    best_val = -1 # keep track of best val accuracy seen so far
+    best_train_action = -1 # keep track of best val accuracy seen so far
+    best_val_action = -1 # keep track of best val accuracy seen so far
+    best_train_scene = -1 
+    best_val_scene = -1 
     n_iter = 0
 
     # Training loop
@@ -54,7 +56,8 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                 model.train(False)  # set model to eval mode
                 print('-'*10, 'VALIDATION', '-'*10)
 
-            num_correct = 0 # keep track of number of correct predictions
+            num_correct_actions = 0 # keep track of number of correct predictions
+            num_correct_scenes = 0
 
             # Iterate over data
             for data in dataloaders[phase]:
@@ -78,18 +81,23 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                 # Average across frames to get a single prediction per clip
                 mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES
                 mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
-                _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                _, pred_action_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                _, pred_scene_idx = torch.max(scene_logits, dim=1)
 
                 # Ground truth labels
-                class_idx = data[1] # shape = B
-                class_idx = class_idx.to(device=device)
-                num_correct += torch.sum(pred_class_idx == class_idx)
+                action_idx = data[1] # shape = B
+                action_idx = action_idx.to(device=device)
+                num_correct_actions += torch.sum(pred_action_idx == action_idx)
+
+                scene_idx = action_idx # TODO: This is just to test the code, still need actional scene ground truth labels
+                scene_idx = scene_idx.to(device=device)
+                num_correct_scenes += torch.sum(pred_scene_idx == scene_idx)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     # Compute combined action and scene classification loss
-                    action_loss = F.cross_entropy(mean_frame_logits, class_idx)
-                    scene_loss = 0
+                    action_loss = F.cross_entropy(mean_frame_logits, action_idx)
+                    scene_loss = F.cross_entropy(scene_logits, scene_idx)
                     loss = action_loss + scene_loss
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
@@ -103,22 +111,35 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     n_iter += 1
 
             # Log train/val accuracy
-            accuracy = float(num_correct) / len(dataloaders[phase].dataset)
-            print('num_correct = {}'.format(num_correct))
+            action_accuracy = float(num_correct_actions) / len(dataloaders[phase].dataset)
+            print('num_correct_actions = {}'.format(num_correct_actions))
             print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
-            print('{}, accuracy = {}'.format(phase, accuracy))
+            print('{}, action accuracy = {}'.format(phase, action_accuracy))
+
+            scene_accuracy = float(scene_correct_scenes) / len(dataloaders[phase].dataset)
+            print('num_correct_scenes = {}'.format(num_correct_scenes))
+            print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
+            print('{}, scene accuracy = {}'.format(phase, scene_accuracy))
 
             if phase == 'train':
-                writer.add_scalar('Accuracy/train', accuracy, e)
-                if accuracy > best_train:
-                    best_train = accuracy
-                    print('BEST TRAINING ACCURACY: {}'.format(best_train))
+                writer.add_scalar('Accuracy/train_action', action_accuracy, e)
+                if action_accuracy > best_train_action:
+                    best_train_action = action_accuracy
+                    print('BEST ACTION TRAINING ACCURACY: {}'.format(best_train_action))
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) # TODO: Determine which checkpoint to save
+                if scene_accuracy > best_train_scene:
+                    best_train_scene = action_accuracy
+                    print('BEST SCENE TRAINING ACCURACY: {}'.format(best_train_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
-                writer.add_scalar('Accuracy/val', accuracy, e)
-                if accuracy > best_val:
-                    best_val = accuracy
-                    print('BEST VALIDATION ACCURACY: {}'.format(best_val))
+                writer.add_scalar('Accuracy/val_action', action_accuracy, e)
+                if action_accuracy > best_val_action:
+                    best_val_action = action_accuracy
+                    print('BEST ACTION VALIDATION ACCURACY: {}'.format(best_val_action))
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
+                if scene_accuracy > best_val_scene:
+                    best_val_scene = action_accuracy
+                    print('BEST SCENE VALIDATION ACCURACY: {}'.format(best_val_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
         if lr_sched is not None:
@@ -155,7 +176,7 @@ if __name__ == '__main__':
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
     SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
-    NUM_WORKERS = 0
+    NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
     
