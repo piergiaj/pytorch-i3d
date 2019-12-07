@@ -100,16 +100,14 @@ def train(model, optimizer, train_loader, test_loader, epochs,
 
                     writer.add_scalar('Loss/train_action', action_loss, n_iter)
                     writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
-                    writer.add_scalar('Loss/train_total', loss, n_iter)
+                    writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
                     loss.backward() 
                     optimizer.step()
 
                     if n_iter % 10 == 0:
-                        print('{}, action_loss = {}'.format(phase, action_loss))
-                        print('{}, scene_loss = {}'.format(phase, scene_loss))
-                        print('{}, total_loss = {}'.format(phase, loss))
+                        print('{}, action_loss = {}, scene_loss = {}, total_loss = {}'.format(phase, action_loss, scene_loss, loss))
 
                     n_iter += 1
 
