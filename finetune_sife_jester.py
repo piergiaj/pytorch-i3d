@@ -98,8 +98,10 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     # Compute combined action and scene classification loss
                     action_loss = F.cross_entropy(mean_frame_logits, action_idxs)
                     scene_loss = F.cross_entropy(scene_logits, scene_idxs)
-                    loss = action_loss + scene_loss # TODO this causes combined loss to increase over time because scene_loss increase a lot, need to combine in a different fashion other than summing (e.g. action_loss - c * scene_loss, where 0 < c < 1) 
-
+                    # a normal summation causes to combine these losses increases over time because scene_loss increases faster than action_loss decreases
+                    # instead, need to subtract scene_loss from action_loss (e.g. action_loss - c * scene_loss, where 0 < c < 1) 
+                    c = 1
+                    loss = action_loss - (c * scene_loss) 
                     writer.add_scalar('Loss/train_action', action_loss, n_iter)
                     writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
                     writer.add_scalar('Loss/train', loss, n_iter)
