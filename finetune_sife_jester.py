@@ -59,43 +59,43 @@ def train(model, optimizer, train_loader, test_loader, epochs,
             num_correct_actions = 0 # keep track of number of correct predictions
             num_correct_scenes = 0
 
-            # Iterate over data
+            # Iterate over batches of data
             for data in dataloaders[phase]:
                 inputs = data[0] # shape = B x C x T x H x W
                 inputs = inputs.to(device=device, dtype=torch.float32) # model expects inputs of float32
 
                 # Forward pass
                 if phase == 'train':
-                    per_frame_logits, scene_logits = model(inputs)
+                    action_logits, scene_logits = model(inputs) # per-frame logits (both have shape = B x C)
                 else: 
                     with torch.no_grad(): # disable autograd to reduce memory usage
-                        per_frame_logits, scene_logits = model(inputs)
+                        action_logits, scene_logits = model(inputs)
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
                 # ALTERNATIVE: Take the average to get per-clip prediction
-                per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
+                action_logits = F.interpolate(action_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Average across frames to get a single prediction per clip
-                mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES
+                mean_frame_logits = torch.mean(action_logits, dim=2) # shape = B x C
                 mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
-                _, pred_action_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
-                _, pred_scene_idx = torch.max(scene_logits, dim=1)
+                _, pred_action_idxs = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                _, pred_scene_idxs = torch.max(scene_logits, dim=1)
 
                 # Ground truth labels
-                action_idx = data[1] # shape = B
-                action_idx = action_idx.to(device=device)
-                num_correct_actions += torch.sum(pred_action_idx == action_idx)
+                action_idxs = data[1] # shape = B
+                action_idxs = action_idxs.to(device=device)
+                num_correct_actions += torch.sum(pred_action_idxs == action_idxs)
 
-                scene_idx = torch.ones_like(pred_scene_idx) # TODO: This is just to test the code, still need actual scene ground truth labels
-                scene_idx = scene_idx.to(device=device)
-                num_correct_scenes += torch.sum(pred_scene_idx == scene_idx)
+                scene_idxs = data[2] # shape = B
+                scene_idxs = scene_idxs.to(device=device)
+                num_correct_scenes += torch.sum(pred_scene_idxs == scene_idxs)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     # Compute combined action and scene classification loss
-                    action_loss = F.cross_entropy(mean_frame_logits, action_idx)
-                    scene_loss = F.cross_entropy(scene_logits, scene_idx)
+                    action_loss = F.cross_entropy(mean_frame_logits, action_idxs)
+                    scene_loss = F.cross_entropy(scene_logits, scene_idxs)
                     loss = action_loss + scene_loss
 
                     writer.add_scalar('Loss/train_action', action_loss, n_iter)
