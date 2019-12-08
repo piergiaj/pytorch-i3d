@@ -18,7 +18,7 @@ def default_loader(path):
 
 class VideoFolder(torch.utils.data.Dataset):
 
-    def __init__(self, root, csv_file_input, csv_file_labels, clip_size,
+    def __init__(self, root, csv_file_input, csv_file_action_labels, csv_file_scene_labels, clip_size,
                  nclips, step_size, is_val, transform=None,
                  loader=default_loader):
         self.dataset_object = JpegDataset(csv_file_input, csv_file_action_labels, csv_file_scene_labels, root)

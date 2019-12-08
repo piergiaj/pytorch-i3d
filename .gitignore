@@ -3,4 +3,5 @@ data/ucf101/clips
 *.jpg
 *.pyc
 checkpoints*/*.pt
+checkpoints*
 runs/

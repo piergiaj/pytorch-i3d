@@ -167,9 +167,11 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
+    print("Starting...")
+    
     if len(sys.argv) < 4:
-      parser.print_usage()
-      sys.exit(1)
+        parser.print_usage()
+        sys.exit(1)
 
     # Hyperparameters
     USE_GPU = True
