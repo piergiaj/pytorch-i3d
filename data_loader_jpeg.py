@@ -21,11 +21,13 @@ class VideoFolder(torch.utils.data.Dataset):
     def __init__(self, root, csv_file_input, csv_file_labels, clip_size,
                  nclips, step_size, is_val, transform=None,
                  loader=default_loader):
-        self.dataset_object = JpegDataset(csv_file_input, csv_file_labels, root)
+        self.dataset_object = JpegDataset(csv_file_input, csv_file_action_labels, csv_file_scene_labels, root)
 
         self.csv_data = self.dataset_object.csv_data
-        self.classes = self.dataset_object.classes
-        self.classes_dict = self.dataset_object.classes_dict
+        self.action_classes = self.dataset_object.action_classes
+        self.scene_classes = self.dataset_object.scene_classes
+        self.action_classes_dict = self.dataset_object.action_classes_dict
+        self.scene_classes_dict = self.dataset_object.scene_classes_dict
         self.root = root
         self.transform = transform
         self.loader = loader
@@ -45,12 +47,13 @@ class VideoFolder(torch.utils.data.Dataset):
             img = self.transform(img)
             imgs.append(torch.unsqueeze(img, 0))
 
-        target_idx = self.classes_dict[item.label]
+        action_idx = self.action_classes_dict[item.action]
+        scene_idx = self.scene_classes_dict[item.scene]
 
         # format data to torch
         data = torch.cat(imgs)
         data = data.permute(1, 0, 2, 3)
-        return (data, target_idx)
+        return (data, action_idx, scene_idx)
 
     def __len__(self):
         return len(self.csv_data)
@@ -102,7 +105,6 @@ if __name__ == '__main__':
                          is_val=False,
                          transform=transform,
                          loader=default_loader)
-    # data_item, target_idx = loader[0]
     # save_images_for_debug("input_images", data_item.unsqueeze(0))
 
     train_loader = torch.utils.data.DataLoader(

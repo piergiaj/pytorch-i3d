@@ -96,7 +96,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     # Compute combined action and scene classification loss
                     action_loss = F.cross_entropy(mean_frame_logits, action_idxs)
                     scene_loss = F.cross_entropy(scene_logits, scene_idxs)
-                    loss = action_loss + scene_loss
+                    loss = action_loss + scene_loss # TODO this causes combined loss to increase over time because scene_loss increase a lot, need to combine in a different fashion other than summing (e.g. action_loss - c * scene_loss, where 0 < c < 1) 
 
                     writer.add_scalar('Loss/train_action', action_loss, n_iter)
                     writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
@@ -173,8 +173,8 @@ if __name__ == '__main__':
 
     # Hyperparameters
     USE_GPU = True
-    NUM_ACTIONS = 27 
-    NUM_SCENES = 10
+    NUM_ACTIONS = 5
+    NUM_SCENES = 2
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
@@ -197,7 +197,8 @@ if __name__ == '__main__':
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                           csv_file_input="./data/jester/annotations/jester-v1-train-modified.csv",
-                          csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                          csv_file_action_labels="./data/jester/annotations/jester-v1-action-labels.csv",
+                          csv_file_scene_labels="./data/jester/annotations/jester-v1-scene-labels.csv",
                           clip_size=16,
                           nclips=1,
                           step_size=1,
@@ -214,7 +215,8 @@ if __name__ == '__main__':
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                         csv_file_input="./data/jester/annotations/jester-v1-validation-modified.csv",
-                        csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                        csv_file_action_labels="./data/jester/annotations/jester-v1-action-labels.csv",
+                        csv_file_scene_labels="./data/jester/annotations/jester-v1-scene-labels.csv",
                         clip_size=16,
                         nclips=1,
                         step_size=1,
