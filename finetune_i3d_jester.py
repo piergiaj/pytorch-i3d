@@ -146,11 +146,11 @@ if __name__ == '__main__':
 
     # Hyperparameters
     USE_GPU = True
-    NUM_CLASSES = 27 # number of classes in Jester
+    NUM_CLASSES = 5 # number of classes in our modified Jester
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
+    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/' # TODO update dir to reflect date started
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
@@ -168,8 +168,8 @@ if __name__ == '__main__':
 
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
-                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                          csv_file_input="./data/jester/annotations/jester-v1-train-modified.csv",
+                          csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
                           clip_size=16,
                           nclips=1,
                           step_size=1,
@@ -185,8 +185,8 @@ if __name__ == '__main__':
                               pin_memory=PIN_MEMORY)
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                        csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
-                        csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                        csv_file_input="./data/jester/annotations/jester-v1-validation-modified.csv",
+                        csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
                         clip_size=16,
                         nclips=1,
                         step_size=1,
