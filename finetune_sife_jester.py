@@ -196,8 +196,8 @@ if __name__ == '__main__':
 
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
-                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                          csv_file_input="./data/jester/annotations/jester-v1-train-modified.csv",
+                          csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
                           clip_size=16,
                           nclips=1,
                           step_size=1,
@@ -213,8 +213,8 @@ if __name__ == '__main__':
                               pin_memory=PIN_MEMORY)
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                        csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
-                        csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
+                        csv_file_input="./data/jester/annotations/jester-v1-validation-modified.csv",
+                        csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
                         clip_size=16,
                         nclips=1,
                         step_size=1,
