@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from pytorch_i3d import InceptionI3d
+from pytorch_sife import SIFE
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Resize
@@ -24,7 +25,7 @@ parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
 
-def train(model, optimizer, train_loader, test_loader, num_classes, epochs, 
+def train(model, optimizer, train_loader, test_loader, epochs, 
           save_dir='', use_gpu=False, lr_sched=None):
     # Enable GPU if available
     if use_gpu and torch.cuda.is_available():
@@ -36,8 +37,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
     
     writer = SummaryWriter() # Tensorboard logging
     dataloaders = {'train': train_loader, 'val': test_loader}   
-    best_train = -1 # keep track of best val accuracy seen so far
-    best_val = -1 # keep track of best val accuracy seen so far
+    best_train_action = -1 # keep track of best val accuracy seen so far
+    best_val_action = -1 # keep track of best val accuracy seen so far
+    best_train_scene = -1 
+    best_val_scene = -1 
     n_iter = 0
 
     # Training loop
@@ -53,7 +56,8 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
                 model.train(False)  # set model to eval mode
                 print('-'*10, 'VALIDATION', '-'*10)
 
-            num_correct = 0 # keep track of number of correct predictions
+            num_correct_actions = 0 # keep track of number of correct predictions
+            num_correct_scenes = 0
 
             # Iterate over data
             for data in dataloaders[phase]:
@@ -62,10 +66,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
 
                 # Forward pass
                 if phase == 'train':
-                    per_frame_logits = model(inputs)
+                    per_frame_logits, scene_logits = model(inputs)
                 else: 
                     with torch.no_grad(): # disable autograd to reduce memory usage
-                        per_frame_logits = model(inputs)
+                        per_frame_logits, scene_logits = model(inputs)
 
                 # Due to the strides and max-pooling in I3D, it temporally downsamples the video by a factor of 8
                 # so we need to upsample (F.interpolate) to get per-frame predictions
@@ -73,19 +77,29 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
                 per_frame_logits = F.interpolate(per_frame_logits, size=inputs.shape[2], mode='linear') # output shape = B x NUM_CLASSES x T
 
                 # Average across frames to get a single prediction per clip
-                mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES, each row is a one-hot vector
+                mean_frame_logits = torch.mean(per_frame_logits, dim=2) # shape = B x NUM_CLASSES
                 mean_frame_logits = mean_frame_logits.to(device=device) # might already be loaded in CUDA but adding this line just in case
-                _, pred_class_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                _, pred_action_idx = torch.max(mean_frame_logits, dim=1) # shape = B, values are indices
+                _, pred_scene_idx = torch.max(scene_logits, dim=1)
 
                 # Ground truth labels
-                class_idx = data[1] # shape = B
-                class_idx = class_idx.to(device=device)
-                num_correct += torch.sum(pred_class_idx == class_idx)
+                action_idx = data[1] # shape = B
+                action_idx = action_idx.to(device=device)
+                num_correct_actions += torch.sum(pred_action_idx == action_idx)
+
+                scene_idx = torch.ones_like(pred_scene_idx) # TODO: This is just to test the code, still need actual scene ground truth labels
+                scene_idx = scene_idx.to(device=device)
+                num_correct_scenes += torch.sum(pred_scene_idx == scene_idx)
 
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
-                    # Compute classification loss
-                    loss = F.cross_entropy(mean_frame_logits, class_idx)
+                    # Compute combined action and scene classification loss
+                    action_loss = F.cross_entropy(mean_frame_logits, action_idx)
+                    scene_loss = F.cross_entropy(scene_logits, scene_idx)
+                    loss = action_loss + scene_loss
+
+                    writer.add_scalar('Loss/train_action', action_loss, n_iter)
+                    writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -93,27 +107,42 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
                     optimizer.step()
 
                     if n_iter % 10 == 0:
-                        print('{}, loss = {}'.format(phase, loss))
+                        print('{}, action_loss = {}, scene_loss = {}, total_loss = {}'.format(phase, action_loss, scene_loss, loss))
 
                     n_iter += 1
 
             # Log train/val accuracy
-            accuracy = float(num_correct) / len(dataloaders[phase].dataset)
-            print('num_correct = {}'.format(num_correct))
+            action_accuracy = float(num_correct_actions) / len(dataloaders[phase].dataset)
+            print('num_correct_actions = {}'.format(num_correct_actions))
             print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
-            print('{}, accuracy = {}'.format(phase, accuracy))
+            print('{}, action accuracy = {}'.format(phase, action_accuracy))
+
+            scene_accuracy = float(num_correct_scenes) / len(dataloaders[phase].dataset)
+            print('num_correct_scenes = {}'.format(num_correct_scenes))
+            print('size of dataset = {}'.format(len(dataloaders[phase].dataset)))
+            print('{}, scene accuracy = {}'.format(phase, scene_accuracy))
 
             if phase == 'train':
-                writer.add_scalar('Accuracy/train', accuracy, e)
-                if accuracy > best_train:
-                    best_train = accuracy
-                    print('BEST TRAINING ACCURACY: {}'.format(best_train))
+                writer.add_scalar('Accuracy/train_action', action_accuracy, e)
+                if action_accuracy > best_train_action:
+                    best_train_action = action_accuracy
+                    print('BEST ACTION TRAINING ACCURACY: {}'.format(best_train_action))
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) # TODO: Determine which checkpoint to save
+                writer.add_scalar('Accuracy/train_scene', scene_accuracy, e)
+                if scene_accuracy > best_train_scene:
+                    best_train_scene = action_accuracy
+                    print('BEST SCENE TRAINING ACCURACY: {}'.format(best_train_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
-                writer.add_scalar('Accuracy/val', accuracy, e)
-                if accuracy > best_val:
-                    best_val = accuracy
-                    print('BEST VALIDATION ACCURACY: {}'.format(best_val))
+                writer.add_scalar('Accuracy/val_action', action_accuracy, e)
+                if action_accuracy > best_val_action:
+                    best_val_action = action_accuracy
+                    print('BEST ACTION VALIDATION ACCURACY: {}'.format(best_val_action))
+                    save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
+                writer.add_scalar('Accuracy/val_scene', scene_accuracy, e)
+                if scene_accuracy > best_val_scene:
+                    best_val_scene = action_accuracy
+                    print('BEST SCENE VALIDATION ACCURACY: {}'.format(best_val_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
         if lr_sched is not None:
@@ -144,11 +173,12 @@ if __name__ == '__main__':
 
     # Hyperparameters
     USE_GPU = True
-    NUM_CLASSES = 5 # number of classes in our modified Jester
+    NUM_ACTIONS = 27 
+    NUM_SCENES = 10
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/' # TODO update dir to reflect date started
+    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
@@ -166,8 +196,8 @@ if __name__ == '__main__':
 
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                          csv_file_input="./data/jester/annotations/jester-v1-train-modified.csv",
-                          csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                          csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-train.csv",
+                          csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
                           clip_size=16,
                           nclips=1,
                           step_size=1,
@@ -183,8 +213,8 @@ if __name__ == '__main__':
                               pin_memory=PIN_MEMORY)
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
-                        csv_file_input="./data/jester/annotations/jester-v1-validation-modified.csv",
-                        csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                        csv_file_input="/vision/group/video/scratch/jester/annotations/jester-v1-validation.csv",
+                        csv_file_labels="/vision/group/video/scratch/jester/annotations/jester-v1-labels.csv",
                         clip_size=16,
                         nclips=1,
                         step_size=1,
@@ -199,15 +229,15 @@ if __name__ == '__main__':
                             num_workers=NUM_WORKERS,
                             pin_memory=PIN_MEMORY)
     
-    # Load pre-trained I3D model
+    # Load pre-trained I3D backbone and set up SIFE
     i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
     i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
-    i3d.replace_logits(NUM_CLASSES) # replace final layer to work with new dataset
+    sife = SIFE(backbone=i3d, num_features=1024, num_actions=NUM_ACTIONS, num_scenes=NUM_SCENES)
 
     # Set up optimizer and learning rate schedule
     optimizer = optim.Adam(i3d.parameters(), lr=LR) 
     lr_sched = optim.lr_scheduler.MultiStepLR(optimizer, [10, 20], gamma=0.1) # decay learning rate by gamma at epoch 10 and 20
 
     # Start training
-    train(i3d, optimizer, train_loader, val_loader, num_classes=NUM_CLASSES, epochs=EPOCHS, 
+    train(sife, optimizer, train_loader, val_loader, epochs=EPOCHS, 
           save_dir=SAVE_DIR, use_gpu=USE_GPU, lr_sched=lr_sched)
