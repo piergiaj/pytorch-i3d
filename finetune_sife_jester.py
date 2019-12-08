@@ -24,6 +24,8 @@ parser.add_argument('--bs', type=int, help='batch size')
 parser.add_argument('--epochs', type=int, help='number of epochs')
 args = parser.parse_args()
 
+import datetime
+
 
 def train(model, optimizer, train_loader, test_loader, epochs, 
           save_dir='', use_gpu=False, lr_sched=None):
@@ -167,7 +169,9 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
-    print("Starting...")
+    print('Starting...')
+    now = datetime.datetime.now()
+    checkpoints_dirname = 'checkpoints-{}-{}-{}-{}-{}-{}'.format(now.year, now.month, now.day, now.hour, now.minute, now.second)
     
     if len(sys.argv) < 4:
         parser.print_usage()
@@ -180,7 +184,7 @@ if __name__ == '__main__':
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/'
+    SAVE_DIR = checkpoints_dirname
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
@@ -189,6 +193,12 @@ if __name__ == '__main__':
     print('BATCH_SIZE =', BATCH_SIZE)
     print('EPOCHS =', EPOCHS)
     print('SAVE_DIR =', SAVE_DIR)
+
+    # Book-keeping
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+    with open(SAVE_DIR + '/info.txt', 'w+') as f:
+        f.write('LR = {}\nBATCH_SIZE = {}\nEPOCHS = {}'.format(LR, BATCH_SIZE, EPOCHS))
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([

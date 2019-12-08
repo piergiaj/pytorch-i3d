@@ -1,0 +1,3 @@
+LR = 0.001
+BATCH_SIZE = 8
+EPOCHS = 50
