@@ -131,7 +131,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter) # TODO: Determine which checkpoint to save
                 writer.add_scalar('Accuracy/train_scene', scene_accuracy, e)
                 if scene_accuracy > best_train_scene:
-                    best_train_scene = action_accuracy
+                    best_train_scene = scene_accuracy
                     print('BEST SCENE TRAINING ACCURACY: {}'.format(best_train_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
             else:
@@ -142,7 +142,7 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
                 writer.add_scalar('Accuracy/val_scene', scene_accuracy, e)
                 if scene_accuracy > best_val_scene:
-                    best_val_scene = action_accuracy
+                    best_val_scene = scene_accuracy
                     print('BEST SCENE VALIDATION ACCURACY: {}'.format(best_val_scene))
                     save_checkpoint(model, optimizer, loss, save_dir, e, n_iter)
 
