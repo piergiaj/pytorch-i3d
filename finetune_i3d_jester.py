@@ -1,5 +1,6 @@
 import os
 import pdb
+import datetime
 import torch
 import torchvision
 import numpy as np
@@ -85,7 +86,9 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     # Compute classification loss
-                    loss = F.cross_entropy(mean_frame_logits, class_idx)
+                    a_weight = torch.Tensor([28.6, 29.4, 27.7, 28.6, 1.16]) # distribution: 0.035, 0.034, 0.036 , 0.035, 0.86
+                    a_weight = a_weight.to(device=device)
+                    loss = F.cross_entropy(mean_frame_logits, class_idx, weight=a_weight)
                     writer.add_scalar('Loss/train', loss, n_iter)
                     
                     optimizer.zero_grad()
@@ -138,17 +141,41 @@ def save_checkpoint(model, optimizer, loss, save_dir, epoch, n_iter):
 
 
 if __name__ == '__main__':
+    # if len(sys.argv) < 4:
+    #   parser.print_usage()
+    #   sys.exit(1)
+
+    # # Hyperparameters
+    # USE_GPU = True
+    # NUM_CLASSES = 5 # number of classes in our modified Jester
+    # LR = args.lr
+    # BATCH_SIZE = args.bs
+    # EPOCHS = args.epochs 
+    # SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/' # TODO update dir to reflect date started
+    # NUM_WORKERS = 2
+    # SHUFFLE = True
+    # PIN_MEMORY = True
+    # 
+    # print('LR =', LR)
+    # print('BATCH_SIZE =', BATCH_SIZE)
+    # print('EPOCHS =', EPOCHS)
+    # print('SAVE_DIR =', SAVE_DIR)
+
+    print('Starting...')
+    now = datetime.datetime.now()
+    checkpoints_dirname = './checkpoints-{}-{}-{}-{}-{}-{}/'.format(now.year, now.month, now.day, now.hour, now.minute, now.second)
+    
     if len(sys.argv) < 4:
-      parser.print_usage()
-      sys.exit(1)
+        parser.print_usage()
+        sys.exit(1)
 
     # Hyperparameters
     USE_GPU = True
-    NUM_CLASSES = 5 # number of classes in our modified Jester
+    NUM_CLASSES = 5
     LR = args.lr
     BATCH_SIZE = args.bs
     EPOCHS = args.epochs 
-    SAVE_DIR = 'checkpoints_lr' + str(args.lr) + '_bs' + str(args.bs) + '/' # TODO update dir to reflect date started
+    SAVE_DIR = checkpoints_dirname
     NUM_WORKERS = 2
     SHUFFLE = True
     PIN_MEMORY = True
@@ -157,6 +184,12 @@ if __name__ == '__main__':
     print('BATCH_SIZE =', BATCH_SIZE)
     print('EPOCHS =', EPOCHS)
     print('SAVE_DIR =', SAVE_DIR)
+
+    # Book-keeping
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+    with open(SAVE_DIR + 'info.txt', 'w+') as f:
+        f.write('LR = {}\nBATCH_SIZE = {}\nEPOCHS = {}\n'.format(LR, BATCH_SIZE, EPOCHS))
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
@@ -167,7 +200,8 @@ if __name__ == '__main__':
     # Load dataset
     d_train = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                           csv_file_input="./data/jester/annotations/jester-v1-train-modified.csv",
-                          csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                          csv_file_action_labels="./data/jester/annotations/jester-v1-action-labels.csv",
+                          csv_file_scene_labels="./data/jester/annotations/jester-v1-scene-labels.csv",
                           clip_size=16,
                           nclips=1,
                           step_size=1,
@@ -184,7 +218,8 @@ if __name__ == '__main__':
 
     d_val = VideoFolder(root="/vision/group/video/scratch/jester/rgb",
                         csv_file_input="./data/jester/annotations/jester-v1-validation-modified.csv",
-                        csv_file_labels="./data/jester/annotations/jester-v1-labels.csv",
+                        csv_file_action_labels="./data/jester/annotations/jester-v1-action-labels.csv",
+                        csv_file_scene_labels="./data/jester/annotations/jester-v1-scene-labels.csv",
                         clip_size=16,
                         nclips=1,
                         step_size=1,

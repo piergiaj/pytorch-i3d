@@ -96,8 +96,12 @@ def train(model, optimizer, train_loader, test_loader, epochs,
                 # Backward pass only if in 'train' mode
                 if phase == 'train':
                     # Compute combined action and scene classification loss
-                    action_loss = F.cross_entropy(mean_frame_logits, action_idxs)
-                    scene_loss = F.cross_entropy(scene_logits, scene_idxs)
+                    a_weight = torch.Tensor([28.6, 29.4, 27.7, 28.6, 1.16]) # distribution: 0.035, 0.034, 0.036 , 0.035, 0.86
+                    a_weight = a_weight.to(device=device)
+                    s_weight = torch.Tensor([7.14, 1.16]) # distribution: 0.14, 0.86
+                    s_weight = s_weight.to(device=device)
+                    action_loss = F.cross_entropy(mean_frame_logits, action_idxs, weight=a_weight)
+                    scene_loss = F.cross_entropy(scene_logits, scene_idxs, weight=s_weight)
                     loss = action_loss + scene_loss
                     writer.add_scalar('Loss/train_action', action_loss, n_iter)
                     writer.add_scalar('Loss/train_scene', scene_loss, n_iter)
