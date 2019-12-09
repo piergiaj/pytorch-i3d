@@ -197,7 +197,7 @@ if __name__ == '__main__':
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
     with open(SAVE_DIR + 'info.txt', 'w+') as f:
-        f.write('LR = {}\nBATCH_SIZE = {}\nEPOCHS = {}'.format(LR, BATCH_SIZE, EPOCHS))
+        f.write('LR = {}\nBATCH_SIZE = {}\nEPOCHS = {}\n'.format(LR, BATCH_SIZE, EPOCHS))
 
     # Transforms
     SPATIAL_TRANSFORM = Compose([
