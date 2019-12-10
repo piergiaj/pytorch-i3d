@@ -33,6 +33,10 @@ def train(model, optimizer, train_loader, test_loader, num_classes, epochs,
     else:
         device = torch.device('cpu')
     print('Using device:', device)
+    
+    if torch.cuda.device_count() > 1:
+        print('Multiple GPUs detected: {}'.format(torch.cuda.device_count()))
+        model = nn.DataParallel(model)
     model = model.to(device=device) # move model parameters to CPU/GPU
     
     writer = SummaryWriter() # Tensorboard logging
