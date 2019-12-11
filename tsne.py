@@ -17,24 +17,36 @@ from torch.utils.tensorboard import SummaryWriter
 from data_loader_jpeg import *
 
 from sklearn.manifold import TSNE
+from collections import OrderedDict
 
+NUM_ACTIONS=5
+NUM_SCENES=2
+NUM_WORKERS = 2
+BATCH_SIZE = 128
+SHUFFLE = False
+PIN_MEMORY = True
+ADVERSARIAL=False
+DATA_PARALLEL=True
 
-i3d = InceptionI3d(400, in_channels=3) # pre-trained model has 400 output classes
-i3d.load_state_dict(torch.load('models/rgb_imagenet.pt'))
-sife = SIFE(backbone=i3d, num_features=1024, num_actions=5, num_scenes=2)
+i3d = InceptionI3d(400, in_channels=3)
+if not ADVERSARIAL:
+    model = i3d
+    model.replace_logits(NUM_ACTIONS)
+else:
+    model = SIFE(backbone=i3d, num_features=1024, num_actions=NUM_ACTIONS, num_scenes=SCENES)
 
 print("Loading checkpoint...")
-checkpoint = torch.load('./checkpoints-2019-12-9-15-47-16/02022233.pt')['model_state_dict']
+if DATA_PARALLEL: # If training was run with nn.DataParallel, need extra steps before loading checkpoint
+    state_dict = torch.load('./checkpoints-2019-12-9-22-36-12/04018530.pt')['model_state_dict']
+    checkpoint = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] # remove 'module'
+        checkpoint[name] = v
+else:
+     checkpoint = torch.load('./checkpoints-2019-12-9-15-47-16/02022233.pt')['model_state_dict']
+model.load_state_dict(checkpoint)
 print("Loaded.")
 
-sife.load_state_dict(checkpoint)
-    
-NUM_ACTIONS = 5
-NUM_SCENES = 2
-NUM_WORKERS = 2
-BATCH_SIZE = 16
-SHUFFLE = True
-PIN_MEMORY = True
 
 # Transforms
 SPATIAL_TRANSFORM = Compose([
@@ -68,26 +80,25 @@ else:
     device = torch.device('cpu')
     print('Using device:', device)
 
-# if torch.cuda.device_count() > 1:
-#     print('Multiple GPUs detected: {}'.format(torch.cuda.device_count()))
-#     sife = nn.DataParallel(sife)
-# AttributeError: 'DataParallel' object has no attribute 'backbone'
-
-sife = sife.to(device=device) # move model parameters to CPU/GPU
+model = model.to(device=device) # move model parameters to CPU/GPU
 
 inputs_features = [] # to hold all inputs' feature arrays
-i = 0
-for data in train_loader:
+print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
+for i,  data in enumerate(train_loader):
     print("Extracting features from batch {}".format(i))
     inputs = data[0]
     inputs = inputs.to(device=device, dtype=torch.float32)
-    # TODO (after extracting 2nd batch's features) RuntimeError: CUDA out of memory. Tried to allocate 98.00 MiB (GPU 0; 11.91 GiB total capacity; 11.23 GiB already allocated; 19.12 MiB free; 127.04 MiB cached)
-    features = sife.backbone.extract_features(inputs)
+    with torch.no_grad():
+        if not ADVERSARIAL:
+            features = model.extract_features(inputs)
+        else:
+            features = model.backbone.extract_features(inputs)
     features = features.squeeze()
     inputs_features.append(features)
-    i += 1
 
 print("Starting TSNE")
 features_embedded = TSNE(n_components=2).fit_transform(inputs_features.cpu().detach().numpy()) # might need >1024 features eventually (at least 8000)
 print("Finished TSNE.")
+print('feautures_embedded shape = {}'.format(features_embdeed.shape))
+
 # TODO plot features_embedded
