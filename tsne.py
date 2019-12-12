@@ -131,5 +131,7 @@ print("Finished TSNE")
 print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
 # Plot TSNE
-plt.scatter(features_embedded[:,0], features_embedded[:,1])
+colors = np.arange(features_embedded.shape[0]) # create color array with num elements equal to num samples in features_embeddedd
+plt.scatter(features_embedded[:,0], features_embedded[:,1], marker='.', c=colors, cmap=plt.cm.get_cmap('viridis'))
+plt.colorbar()
 plt.savefig(TSNE_SAVE_PATH)
