@@ -16,7 +16,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from data_loader_jpeg import *
 
-from sklearn.manifold import TSNE
+# from sklearn.manifold import TSNE
+from MulticoreTSNE import MulticoreTSNE as TSNE
+from matplotlib import pyplot as plt
 from collections import OrderedDict
 
 NUM_ACTIONS = 5
@@ -81,28 +83,33 @@ else:
     print('Using device:', device)
 model = model.to(device=device) # move model parameters to CPU/GPU
 
-print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
-inputs_features = np.empty((0, NUM_FEATURES)) # to hold all inputs' feature arrays
-for i,  data in enumerate(train_loader):
-    print("Extracting features from batch {}".format(i))
-    inputs = data[0]
-    inputs = inputs.to(device=device, dtype=torch.float32)
-    with torch.no_grad():
-        if not ADVERSARIAL:
-            features = model.extract_features(inputs)
-        else:
-            features = model.backbone.extract_features(inputs)
-    features = features.squeeze()
-    features = features.cpu().detach().numpy()
-    inputs_features = np.append(inputs_features, features, axis=0) 
+# print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
+# inputs_features = np.empty((0, NUM_FEATURES)) # to hold all inputs' feature arrays
+# for i,  data in enumerate(train_loader):
+#     print("Extracting features from batch {}".format(i))
+#     inputs = data[0]
+#     inputs = inputs.to(device=device, dtype=torch.float32)
+#     with torch.no_grad():
+#         if not ADVERSARIAL:
+#             features = model.extract_features(inputs)
+#         else:
+#             features = model.backbone.extract_features(inputs)
+#     features = features.squeeze()
+#     features = features.cpu().detach().numpy()
+#     inputs_features = np.append(inputs_features, features, axis=0) 
+# 
+# print('inputs_features shape = {}'.format(inputs_features.shape))
+# print('Saving features')
+# np.save('inputs_features_baseline', inputs_features)
 
-print('inputs_features shape = {}'.format(inputs_features.shape))
-print('Saving features')
-np.save('inputs_features_baseline', inputs_features)
+# Load inputs_features from disk
+inputs_features = np.load('inputs_features_baseline.npy')
 
 print("Starting TSNE")
-features_embedded = TSNE(n_components=2).fit_transform(inputs_features)
+features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
 print("Finished TSNE")
-print('feautures_embedded shape = {}'.format(features_embdeed.shape))
+print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
 # TODO plot features_embedded
+plt.scatter(features_embedded[:,0], features_embedded[:,1])
+plt.show()
