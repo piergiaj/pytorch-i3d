@@ -3,6 +3,7 @@ data/ucf101/clips
 *.jpg
 *.pyc
 *.swp
+*.npy
 checkpoints*/*.pt
 checkpoints*
 runs/

@@ -21,18 +21,24 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 from matplotlib import pyplot as plt
 from collections import OrderedDict
 
-
+# currently works for adversarial model
+# TODO modify for baseline i3d model on toy jester dataset
 # Modify these
 NUM_ACTIONS = 5
 NUM_SCENES = 2
 NUM_FEATURES = 1024
 BATCH_SIZE = 128
-ADVERSARIAL = False
-DATA_PARALLEL = True # Was model trained using nn.DataParallel?
-CHECKPOINT_PATH = '/vision/u/rhsieh91/pytorch-i3d/checkpoints-2019-12-9-22-36-12/04018530.pt'
-FEATURES_PATH = '/vision/u/rhsieh91/pytorch-i3d/inputs_features_baseline.npy'
-FEATURES_SAVE_PATH = 'input_features_baseline' # features will only be saved if FEATURES_PATH is defined
-TSNE_SAVE_PATH = 'tsne_baseline.png'
+ADVERSARIAL = True
+DATA_PARALLEL = False # Was model trained using nn.DataParallel?
+CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
+FEATURES_PATH = None #'/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
+FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
+ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
+ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
+SCENES_PATH = '/vision/u/samkwong/pytorch-i3d/input_scenes_sife_epoch22.npy'
+SCENES_SAVE_PATH = 'input_scenes_sife_epoch22'
+TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
+TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
 
 # Don't need to modify these
 NUM_WORKERS = 2
@@ -43,25 +49,31 @@ IS_VAL = True # True = don't randomly offset clips (i.e. don't augment dataset)
 # Either load features from disk or compute them
 if FEATURES_PATH:
     inputs_features = np.load(FEATURES_PATH)
-
+    inputs_actions = np.load(ACTIONS_PATH)
+    inputs_scenes = np.load(SCENES_PATH)
 else:
     i3d = InceptionI3d(400, in_channels=3)
+
     if not ADVERSARIAL:
         model = i3d
         model.replace_logits(NUM_ACTIONS)
     else:
-        model = SIFE(backbone=i3d, num_features=NUM_FEATURES, num_actions=NUM_ACTIONS, num_scenes=SCENES)
+        model = SIFE(backbone=i3d, num_features=NUM_FEATURES, num_actions=NUM_ACTIONS, num_scenes=NUM_SCENES)
 
     # Load checkpoint
     print("Loading checkpoint...")
+
     if DATA_PARALLEL: # If training was run with nn.DataParallel, need extra steps before loading checkpoint
+        print("used nn.DataParallel")
         state_dict = torch.load(CHECKPOINT_PATH)['model_state_dict'] # baseline weights
         checkpoint = OrderedDict()
         for k, v in state_dict.items():
             name = k[7:] # remove 'module'
             checkpoint[name] = v
     else:
-         checkpoint = torch.load(CHECKPOINT_PATH)['model_state_dict'] # adversarial weights
+        print('adv weights')
+        checkpoint = torch.load(CHECKPOINT_PATH)['model_state_dict'] # adversarial weights
+
     model.load_state_dict(checkpoint)
     print("Loaded.")
 
@@ -98,30 +110,34 @@ else:
         print('Using device:', device)
     model = model.to(device=device) # move model parameters to CPU/GPU
 
-    # Either load features from disk or compute them
-    if FEATURES_PATH:# Load inputs_features from disk
-        inputs_features = np.load(FEATURES_PATH)
-    else:
-        print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
+    # Extract features
+    print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
+    inputs_features = np.empty((0, NUM_FEATURES)) # to hold all inputs' feature arrays
+    inputs_actions = np.empty(0)
+    inputs_scenes = np.empty(0)
+    for i, data in enumerate(train_loader):
+        print("Extracting features from batch {}".format(i))
+        inputs, action_idxs, scene_idxs = data[0], data[1], data[2]
+        inputs = inputs.to(device=device, dtype=torch.float32) 
+        with torch.no_grad():
+            if not ADVERSARIAL:
+                features = model.extract_features(inputs)
+            else:
+                features = model.backbone.extract_features(inputs)
 
-        inputs_features = np.empty((0, NUM_FEATURES)) # to hold all inputs' feature arrays
-        for i,  data in enumerate(train_loader):
-            print("Extracting features from batch {}".format(i))
-            inputs = data[0]
-            inputs = inputs.to(device=device, dtype=torch.float32)
-            with torch.no_grad():
-                if not ADVERSARIAL:
-                    features = model.extract_features(inputs)
-                else:
-                    features = model.backbone.extract_features(inputs)
+        features = features.squeeze()
+        features = features.cpu().detach().numpy()
+        action_idxs = action_idxs.squeeze().cpu().detach().numpy()
+        scene_idxs = scene_idxs.squeeze().cpu().detach().numpy()
+        inputs_features = np.append(inputs_features, features, axis=0)
+        inputs_actions = np.append(inputs_actions, action_idxs, axis=0)
+        inputs_scenes = np.append(inputs_scenes, scene_idxs, axis=0)
 
-            features = features.squeeze()
-            features = features.cpu().detach().numpy()
-            inputs_features = np.append(inputs_features, features, axis=0) 
-
-        print('inputs_features shape = {}'.format(inputs_features.shape))
-        print('Saving features')
-        np.save(FEATURES_SAVE_PATH, inputs_features)
+    print('inputs_features shape = {}'.format(inputs_features.shape))
+    print('Saving features')
+    np.save(FEATURES_SAVE_PATH, inputs_features)
+    np.save(ACTIONS_SAVE_PATH, inputs_actions)
+    np.save(SCENES_SAVE_PATH, inputs_scenes)
 
 
 # Calculate TSNE
@@ -130,8 +146,19 @@ features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSN
 print("Finished TSNE")
 print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
-# Plot TSNE
-colors = np.arange(features_embedded.shape[0]) # create color array with num elements equal to num samples in features_embeddedd
-plt.scatter(features_embedded[:,0], features_embedded[:,1], marker='.', c=colors, cmap=plt.cm.get_cmap('viridis'))
-plt.colorbar()
-plt.savefig(TSNE_SAVE_PATH)
+# Plot TSNE for action
+action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
+action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
+for i, c, label in zip(range(NUM_ACTIONS), action_colors, action_labels):
+    plt.scatter(features_embedded[inputs_actions == i, 0], features_embedded[inputs_actions == i, 1], c=c, label=label) 
+
+plt.savefig(TSNE_ACTION_SAVE_PATH)
+
+# Plot TSNE for scene
+scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
+scene_labels = ['swiping', 'other']
+for i, c, label in zip(range(NUM_SCENES), scene_colors, scene_labels):
+    plt.scatter(features_embedded[inputs_scenes == i, 0], features_embedded[inputs_scenes == i, 1], c=c, label=label) 
+
+plt.legend()
+plt.savefig(TSNE_SCENE_SAVE_PATH)
