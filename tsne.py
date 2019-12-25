@@ -21,6 +21,12 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 from matplotlib import pyplot as plt
 from collections import OrderedDict
 
+import sys
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--baseline', type=int, help='If true, TSNE for baseline, else for SIFE')
+args = parser.parse_args()
+
 # currently works for adversarial model
 # TODO modify for baseline i3d model on toy jester dataset
 # Modify these
@@ -140,25 +146,49 @@ else:
     np.save(SCENES_SAVE_PATH, inputs_scenes)
 
 
-# Calculate TSNE
-print("Starting TSNE")
-features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
-print("Finished TSNE")
-print('feautures_embedded shape = {}'.format(features_embedded.shape))
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        parser.print_usage()
+        sys.exit(1)
 
-# Plot TSNE for action
-action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
-action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
-for i, c, label in zip(range(NUM_ACTIONS), action_colors, action_labels):
-    plt.scatter(features_embedded[inputs_actions == i, 0], features_embedded[inputs_actions == i, 1], c=c, label=label) 
+    action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
+    action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
+    
+    if args.baseline:
+        # TODO modify for baseline feature extraction here
+        # Calculate TSNE
+        print("Starting TSNE")
+        features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
+        print("Finished TSNE")
+        print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
-plt.savefig(TSNE_ACTION_SAVE_PATH)
+        # Plot TSNE for action
+        for i, c, label in zip(range(NUM_ACTIONS), action_colors, action_labels):
+            plt.scatter(features_embedded[inputs_actions == i, 0], features_embedded[inputs_actions == i, 1], c=c, label=label) 
+        plt.legend()
+        plt.savefig(TSNE_ACTION_SAVE_PATH)
 
-# Plot TSNE for scene
-scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
-scene_labels = ['swiping', 'other']
-for i, c, label in zip(range(NUM_SCENES), scene_colors, scene_labels):
-    plt.scatter(features_embedded[inputs_scenes == i, 0], features_embedded[inputs_scenes == i, 1], c=c, label=label) 
+    else:
+        # TODO put rest of my sife tsne script here
+        # Calculate TSNE
+        print("Starting TSNE")
+        features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
+        print("Finished TSNE")
+        print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
-plt.legend()
-plt.savefig(TSNE_SCENE_SAVE_PATH)
+        # Plot TSNE for action
+        for i, c, label in zip(range(NUM_ACTIONS), action_colors, action_labels):
+            plt.scatter(features_embedded[inputs_actions == i, 0], features_embedded[inputs_actions == i, 1], c=c, label=label) 
+        plt.legend()
+        plt.savefig(TSNE_ACTION_SAVE_PATH)
+
+        # Plot TSNE for scene
+        scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
+        scene_labels = ['swiping', 'other']
+        for i, c, label in zip(range(NUM_SCENES), scene_colors, scene_labels):
+            plt.scatter(features_embedded[inputs_scenes == i, 0], features_embedded[inputs_scenes == i, 1], c=c, label=label) 
+        plt.legend()
+        plt.savefig(TSNE_SCENE_SAVE_PATH)
+
+
+
