@@ -29,7 +29,7 @@ BATCH_SIZE = 128
 IS_BASELINE = False # modify if want to use baseline or not
 DATA_PARALLEL = False # Was model trained using nn.DataParallel?
 CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
-FEATURES_PATH = None #'/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
+FEATURES_PATH = '/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
 FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
 ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
 ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
@@ -144,22 +144,22 @@ else:
     test_loader = get_test_loader(model)
     inputs_features, inputs_actions, inputs_scenes = extract_data(model, test_loader)
 
-    # Calculate TSNE
-    print("Starting TSNE")
-    features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
-    print("Finished TSNE")
-    print('feautures_embedded shape = {}'.format(features_embedded.shape))
+# Calculate TSNE
+print("Starting TSNE")
+features_embedded = TSNE(n_jobs=8).fit_transform(inputs_features) # MultiCoreTSNE automatically uses n_components=2
+print("Finished TSNE")
+print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
-    # Plot TSNE for action
-    print("Plotting action TSNE")
-    action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
-    action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
-    plot_tsne(inputs_actions, action_colors, action_labels, TSNE_ACTION_SAVE_PATH)
+# Plot TSNE for action
+print("Plotting action TSNE")
+action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
+action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
+plot_tsne(inputs_actions, action_colors, action_labels, TSNE_ACTION_SAVE_PATH)
 
-    # Plot TSNE for scene
-    print("Plotting scene TSNE")
-    scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
-    scene_labels = ['swiping', 'other']
-    plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
+# Plot TSNE for scene
+print("Plotting scene TSNE")
+scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
+scene_labels = ['swiping', 'other']
+plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
 
 
