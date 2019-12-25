@@ -39,6 +39,21 @@ TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
 TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
 
 
+def load_checkpoint():
+    print("Loading checkpoint...")
+    if DATA_PARALLEL: # If training was run with nn.DataParallel, need extra steps before loading checkpoint
+        print("Used nn.DataParallel")
+        state_dict = torch.load(CHECKPOINT_PATH)['model_state_dict'] # baseline weights
+        checkpoint = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove 'module'
+            checkpoint[name] = v
+    else:
+        print('Using sife weights')
+        checkpoint = torch.load(CHECKPOINT_PATH)['model_state_dict'] # sife weights
+    model.load_state_dict(checkpoint)
+    print("Loaded")
+
 def extract_data(model, test_loader):
     # Extract features
     print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
@@ -104,6 +119,12 @@ def get_test_loader(model):
     model = model.to(device=device) # move model parameters to CPU/GPU
     return test_loader
 
+def plot_tsne(inputs_truths, colors, labels, save_path):
+    for i, c, label in zip(range(len(colors)), colors, labels):
+        plt.scatter(features_embedded[inputs_truths == i, 0], features_embedded[inputs_truths == i, 1], c=c, label=label) 
+    plt.legend()
+    plt.savefig(save_path)
+
 # ------------------------------------------------------------
 
 # Either load features from disk or compute them
@@ -118,21 +139,8 @@ else:
         model.replace_logits(NUM_ACTIONS)
     else:
         model = SIFE(backbone=i3d, num_features=NUM_FEATURES, num_actions=NUM_ACTIONS, num_scenes=NUM_SCENES)
-    
-    print("Loading checkpoint...")
-    if DATA_PARALLEL: # If training was run with nn.DataParallel, need extra steps before loading checkpoint
-        print("Used nn.DataParallel")
-        state_dict = torch.load(CHECKPOINT_PATH)['model_state_dict'] # baseline weights
-        checkpoint = OrderedDict()
-        for k, v in state_dict.items():
-            name = k[7:] # remove 'module'
-            checkpoint[name] = v
-    else:
-        print('Using sife weights')
-        checkpoint = torch.load(CHECKPOINT_PATH)['model_state_dict'] # sife weights
-    model.load_state_dict(checkpoint)
-    print("Loaded")
 
+    load_checkpoint()
     test_loader = get_test_loader(model)
     inputs_features, inputs_actions, inputs_scenes = extract_data(model, test_loader)
 
@@ -143,19 +151,15 @@ else:
     print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
     # Plot TSNE for action
+    print("Plotting action TSNE")
     action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
     action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
-    for i, c, label in zip(range(NUM_ACTIONS), action_colors, action_labels):
-        plt.scatter(features_embedded[inputs_actions == i, 0], features_embedded[inputs_actions == i, 1], c=c, label=label) 
-    plt.legend()
-    plt.savefig(TSNE_ACTION_SAVE_PATH)
+    plot_tsne(inputs_actions, action_colors, action_labels, TSNE_ACTION_SAVE_PATH)
 
     # Plot TSNE for scene
+    print("Plotting scene TSNE")
     scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
     scene_labels = ['swiping', 'other']
-    for i, c, label in zip(range(NUM_SCENES), scene_colors, scene_labels):
-        plt.scatter(features_embedded[inputs_scenes == i, 0], features_embedded[inputs_scenes == i, 1], c=c, label=label) 
-    plt.legend()
-    plt.savefig(TSNE_SCENE_SAVE_PATH)
+    plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
 
 
