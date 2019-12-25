@@ -103,7 +103,7 @@ def get_test_loader(model):
                           transform=SPATIAL_TRANSFORM,
                           loader=default_loader)
 
-    print('Size of training set = {}'.format(len(d_train)))
+    print('Size of training set = {}'.format(len(vf)))
     test_loader = DataLoader(vf, 
                               batch_size=BATCH_SIZE,
                               shuffle=False, 
