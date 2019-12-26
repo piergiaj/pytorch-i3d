@@ -153,14 +153,13 @@ print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
 # Plot TSNE for action
 print("Plotting action TSNE")
-action_colors = ['r', 'g', 'b', 'c', 'm'] # create color list with num elements equal to num action labels 
+action_colors = ['r', 'g', 'b', 'c', 'black'] # create color list with num elements equal to num action labels 
 action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
 plot_tsne(inputs_actions, action_colors, action_labels, TSNE_ACTION_SAVE_PATH)
 
 # Plot TSNE for scene
 print("Plotting scene TSNE")
-scene_colors = ['orange', 'purple'] # create color list with num elements equal to num scene labels
+scene_colors = ['orange', 'black'] # create color list with num elements equal to num scene labels
 scene_labels = ['swiping', 'other']
 plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
-
 
