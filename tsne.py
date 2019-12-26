@@ -21,22 +21,35 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 from matplotlib import pyplot as plt
 from collections import OrderedDict
 
-# Modify these
+# ----------------- Modify these --------------------
+
 NUM_ACTIONS = 5
 NUM_SCENES = 2
 NUM_FEATURES = 1024
 BATCH_SIZE = 128
-IS_BASELINE = False # modify if want to use baseline or not
-DATA_PARALLEL = False # Was model trained using nn.DataParallel?
-CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
-FEATURES_PATH = '/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
-FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
-ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
-ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
-SCENES_PATH = '/vision/u/samkwong/pytorch-i3d/input_scenes_sife_epoch22.npy'
-SCENES_SAVE_PATH = 'input_scenes_sife_epoch22'
-TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
-TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
+
+""" baseline i3d params """
+IS_BASELINE = True # use baseline i3d
+DATA_PARALLEL = True # model trained using nn.DataParallel
+CHECKPOINT_PATH = '/vision/u/rhsieh91/pytorch-i3d/checkpoints-2019-12-9-22-36-12/22085238.pt' # epoch 22
+FEATURES_PATH = None #'/vision/u/samkwong/pytorch-i3d/input_features_i3d_epoch22.npy'
+FEATURES_SAVE_PATH = 'input_features_i3d_epoch22' # features will only be saved if FEATURES_PATH is defined
+ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_i3d_epoch22.npy'
+ACTIONS_SAVE_PATH = 'input_actions_i3d_epoch22'
+TSNE_ACTION_SAVE_PATH = 'tsne_i3d_action_jester_epoch22.png'
+
+""" sife params """
+#IS_BASELINE = False # use sife
+#DATA_PARALLEL = False # model trained without using nn.DataParallel
+#CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
+#FEATURES_PATH = '/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
+#FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
+#ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
+#ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
+#SCENES_PATH = '/vision/u/samkwong/pytorch-i3d/input_scenes_sife_epoch22.npy'
+#SCENES_SAVE_PATH = 'input_scenes_sife_epoch22'
+#TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
+#TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
 
 
 def load_checkpoint():
@@ -55,7 +68,15 @@ def load_checkpoint():
     print("Loaded")
 
 def extract_data(model, test_loader):
-    # Extract features
+    # Move model to CPU/GPU
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+        print('Using device:', device)
+    model = model.to(device=device) # move model parameters to CPU/GPU
+
+    # Extract features and ground truth labels
     print('Starting feature extraction with batch size = {}'.format(BATCH_SIZE))
     inputs_features = np.empty((0, NUM_FEATURES)) # to hold all inputs' feature arrays
     inputs_actions = np.empty(0)
@@ -68,7 +89,7 @@ def extract_data(model, test_loader):
             if IS_BASELINE:
                 features = model.extract_features(inputs)
             else:
-                features = model.backbone.extract_features(inputs)
+                features = model.backbone.extract_features(inputs) # using SIFE with I3D backbone
 
         features = features.squeeze()
         features = features.cpu().detach().numpy()
@@ -83,6 +104,7 @@ def extract_data(model, test_loader):
     np.save(FEATURES_SAVE_PATH, inputs_features)
     np.save(ACTIONS_SAVE_PATH, inputs_actions)
     np.save(SCENES_SAVE_PATH, inputs_scenes)
+    return inputs_features, inputs_actions, inputs_scenes
 
 def get_test_loader(model):
     # Transforms
@@ -110,20 +132,14 @@ def get_test_loader(model):
                               num_workers=2,
                               pin_memory=True)
 
-    # Move model to CPU/GPU
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
-        print('Using device:', device)
-    model = model.to(device=device) # move model parameters to CPU/GPU
     return test_loader
 
 def plot_tsne(inputs_truths, colors, labels, save_path):
-    for i, c, label in zip(range(len(colors)), colors, labels):
+    for i, c, label in zip(range(len(colors))[::-1], colors[::-1], labels[::-1]):
         plt.scatter(features_embedded[inputs_truths == i, 0], features_embedded[inputs_truths == i, 1], c=c, label=label) 
-    plt.legend(labels)
+    plt.legend()
     plt.savefig(save_path)
+    plt.clear()
 
 # ------------------------------------------------------------
 
@@ -153,13 +169,14 @@ print('feautures_embedded shape = {}'.format(features_embedded.shape))
 
 # Plot TSNE for action
 print("Plotting action TSNE")
-action_colors = ['r', 'g', 'b', 'c', 'black'] # create color list with num elements equal to num action labels 
+action_colors = ['r', 'g', 'b', 'c', 'grey'] # create color list with num elements equal to num action labels 
 action_labels = ['swiping-left', 'swiping-right', 'swiping-down', 'swiping-up', 'other']
 plot_tsne(inputs_actions, action_colors, action_labels, TSNE_ACTION_SAVE_PATH)
 
-# Plot TSNE for scene
-print("Plotting scene TSNE")
-scene_colors = ['orange', 'black'] # create color list with num elements equal to num scene labels
-scene_labels = ['swiping', 'other']
-plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
-
+if not IS_BASELINE:
+    # Plot TSNE for scene
+    print("Plotting scene TSNE")
+    scene_colors = ['orange', 'grey'] # create color list with num elements equal to num scene labels
+    scene_labels = ['swiping', 'other']
+    plot_tsne(inputs_scenes, scene_colors, scene_labels, TSNE_SCENE_SAVE_PATH)
+    
