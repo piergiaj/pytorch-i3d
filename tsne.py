@@ -122,7 +122,7 @@ def get_test_loader(model):
 def plot_tsne(inputs_truths, colors, labels, save_path):
     for i, c, label in zip(range(len(colors)), colors, labels):
         plt.scatter(features_embedded[inputs_truths == i, 0], features_embedded[inputs_truths == i, 1], c=c, label=label) 
-    plt.legend()
+    plt.legend(labels)
     plt.savefig(save_path)
 
 # ------------------------------------------------------------
@@ -132,6 +132,7 @@ if FEATURES_PATH:
     inputs_features = np.load(FEATURES_PATH)
     inputs_actions = np.load(ACTIONS_PATH)
     inputs_scenes = np.load(SCENES_PATH)
+    print('Loaded saved features and ground truth labels')
 else:
     i3d = InceptionI3d(400, in_channels=3)
     if IS_BASELINE:
