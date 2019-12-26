@@ -29,27 +29,27 @@ NUM_FEATURES = 1024
 BATCH_SIZE = 128
 
 """ baseline i3d params """
-IS_BASELINE = True # use baseline i3d
-DATA_PARALLEL = True # model trained using nn.DataParallel
-CHECKPOINT_PATH = '/vision/u/rhsieh91/pytorch-i3d/checkpoints-2019-12-9-22-36-12/22085238.pt' # epoch 22
-FEATURES_PATH = None #'/vision/u/samkwong/pytorch-i3d/input_features_i3d_epoch22.npy'
-FEATURES_SAVE_PATH = 'input_features_i3d_epoch22' # features will only be saved if FEATURES_PATH is defined
-ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_i3d_epoch22.npy'
-ACTIONS_SAVE_PATH = 'input_actions_i3d_epoch22'
-TSNE_ACTION_SAVE_PATH = 'tsne_i3d_action_jester_epoch22.png'
+#IS_BASELINE = True # use baseline i3d
+#DATA_PARALLEL = True # model trained using nn.DataParallel
+#CHECKPOINT_PATH = '/vision/u/rhsieh91/pytorch-i3d/checkpoints-2019-12-9-22-36-12/22085238.pt' # epoch 22
+#FEATURES_PATH = None #'/vision/u/samkwong/pytorch-i3d/input_features_i3d_epoch22.npy'
+#FEATURES_SAVE_PATH = 'input_features_i3d_epoch22' # features will only be saved if FEATURES_PATH is defined
+#ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_i3d_epoch22.npy'
+#ACTIONS_SAVE_PATH = 'input_actions_i3d_epoch22'
+#TSNE_ACTION_SAVE_PATH = 'tsne_i3d_action_jester_epoch22.png'
 
 """ sife params """
-#IS_BASELINE = False # use sife
-#DATA_PARALLEL = False # model trained without using nn.DataParallel
-#CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
-#FEATURES_PATH = '/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
-#FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
-#ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
-#ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
-#SCENES_PATH = '/vision/u/samkwong/pytorch-i3d/input_scenes_sife_epoch22.npy'
-#SCENES_SAVE_PATH = 'input_scenes_sife_epoch22'
-#TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
-#TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
+IS_BASELINE = False # use sife
+DATA_PARALLEL = False # model trained without using nn.DataParallel
+CHECKPOINT_PATH = '/vision/u/samkwong/pytorch-i3d/checkpoints-2019-12-9-15-47-16/22170453.pt' # epoch 22
+FEATURES_PATH = '/vision/u/samkwong/pytorch-i3d/input_features_sife_epoch22.npy'
+FEATURES_SAVE_PATH = 'input_features_sife_epoch22' # features will only be saved if FEATURES_PATH is defined
+ACTIONS_PATH = '/vision/u/samkwong/pytorch-i3d/input_actions_sife_epoch22.npy'
+ACTIONS_SAVE_PATH = 'input_actions_sife_epoch22'
+SCENES_PATH = '/vision/u/samkwong/pytorch-i3d/input_scenes_sife_epoch22.npy'
+SCENES_SAVE_PATH = 'input_scenes_sife_epoch22'
+TSNE_ACTION_SAVE_PATH = 'tsne_sife_action_jester_epoch22.png'
+TSNE_SCENE_SAVE_PATH = 'tsne_sife_scene_jester_epoch22.png'
 
 
 def load_checkpoint():
@@ -136,10 +136,10 @@ def get_test_loader(model):
 
 def plot_tsne(inputs_truths, colors, labels, save_path):
     for i, c, label in zip(range(len(colors))[::-1], colors[::-1], labels[::-1]):
-        plt.scatter(features_embedded[inputs_truths == i, 0], features_embedded[inputs_truths == i, 1], c=c, label=label) 
+        fig = plt.scatter(features_embedded[inputs_truths == i, 0], features_embedded[inputs_truths == i, 1], c=c, label=label) 
     plt.legend()
     plt.savefig(save_path)
-    plt.clear()
+    fig.remove()
 
 # ------------------------------------------------------------
 
